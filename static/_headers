@@ -1,15 +1,12 @@
-# Cloudflare Pages headers. Not a URL: Pages consumes this file and never
-# serves it, so it needs no exemption from the apex redirect rule.
+# Cloudflare Pages headers. Pages consumes this file and never serves it, so it
+# is not a URL and needs no exemption from the apex redirect rule.
 
+# version.txt is the portal's deploy marker. textbook-registry's portal.yml polls
+# it after firing the deploy hook and fails red if it doesn't reach the merge SHA
+# within ten minutes. An edge-cached copy would report the previous build and the
+# check would fail for the wrong reason.
 /version.txt
-  ! Cache-Control
   Cache-Control: no-store
-  Content-Type: text/plain; charset=utf-8
-
-# version.txt is the portal's deploy marker. textbook-registry's portal.yml
-# polls it after firing the deploy hook and fails red if it doesn't reach the
-# merge SHA within ten minutes. An edge-cached copy would make that poll report
-# the previous build and the check would fail for the wrong reason.
 
 /*
   X-Content-Type-Options: nosniff
