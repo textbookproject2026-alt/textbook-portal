@@ -1,0 +1,13 @@
+{
+  "name": "textbook-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The platform portal: a static page at confused4now.org listing the textbooks, generated from the registry at build time.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "REGISTRY_FILE=../textbook-registry/registry.json node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}
