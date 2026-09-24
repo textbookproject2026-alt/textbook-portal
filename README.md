@@ -88,6 +88,11 @@ In page order, each left out when it has nothing to show:
   are joined when they appear on the same page; a word is larger the more pages it is on.
   A concept "appears" on its own page and every page linking to it; a book's home page
   doesn't count, because it links to everything. Up to 60 words, the most used.
+  Coloured by topic: a concept takes its own page's topic, a tag the topic most of its
+  pages share. A page's topic is its frontmatter `topic:`, else its first tag (quartz-book
+  `topicOf`, in the catalog as `topic`). The eight topics with the most words take the
+  eight colour slots (`--kw-topic-0` … `-7` in `styles.css`, the same values as the books'
+  graph); any other topic, or none, is "Other". A legend names them.
 - **Recently added and changed** — one row per book per day, newest first, up to 8. A
   commit that touches six concept pages is one row, naming three.
 - **Browse by author** — each book's `authors` from its catalog (the book's `index.md`
@@ -119,8 +124,11 @@ branch, when its `PORTAL_DEPLOY_HOOK` secret is set (the same hook URL as
 `src/portal.js` is inlined at build time, like the stylesheet, so the portal is still two
 files. Without it the graph is a finished SVG whose every node links to its entry under
 *Browse by topic*. With it, hovering or focusing a word lights up its neighbours, a click
-opens its pages beside the graph (Escape closes), the graph filters to concepts or tags,
-and the topic index filters as you type. It reads only the page's own DOM.
+opens its pages beside the graph (Escape closes), the graph filters by kind (concepts or
+tags), topic, author (a page's `authors`, else its book's, else the maintainer) and book,
+all at once, and the topic index filters as you type. The legend's topics are a shortcut to
+the topic filter. A filter is only offered when it has a choice to make: the author filter
+needs two authors, the book filter two live books. It reads only the page's own DOM.
 
 ## `/version.txt`
 

@@ -19,6 +19,13 @@ const FETCH_TIMEOUT_MS = 10000;
 /** How much of each the page shows. The catalogs carry more. */
 export const LIMITS = { recent: 8, graphNodes: 60 };
 
+/**
+ * Topic colours in the graph: categorical slots in a fixed order (styles.css
+ * --kw-topic-1 … -8). The same count as the books' graph (quartz-edition-extras
+ * textbook-graph); past it, a topic is "Other", never a new colour.
+ */
+export const TOPIC_SLOTS = 8;
+
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
 const isPath = (v) => isText(v) && v.startsWith('/') && !v.startsWith('//') && !/[\s"'<>]/.test(v);
 const textList = (v) => (Array.isArray(v) ? v.filter(isText).map((s) => s.trim()) : []);
@@ -81,6 +88,9 @@ export function readCatalog(raw, slug) {
       tags: textList(p.tags).map((t) => t.toLowerCase()),
       concept: p.concept === true,
       authors: textList(p.authors),
+      // quartz-book writes it from the page's frontmatter (builder/lib.mjs
+      // topicOf). Catalogs older than that have none: the page is "Other".
+      topic: isText(p.topic) ? p.topic.trim() : null,
       links: textList(p.links).filter(isPath),
     }));
   const known = new Set(pages.map((p) => p.path));
@@ -143,34 +153,47 @@ export function keywords(books, catalogs) {
   const byKey = new Map();
   const pageKeys = new Map(); // "slug path" -> Set of keyword keys
 
-  const note = (key, label, kind, book, page) => {
+  const note = (key, label, kind, book, page, authorsOf) => {
     let k = byKey.get(key);
-    if (!k) byKey.set(key, (k = { key, label, kinds: new Set(), pages: new Map(), books: new Set() }));
+    if (!k) byKey.set(key, (k = { key, label, kinds: new Set(), pages: new Map(), books: new Set(), authors: new Set(), topics: new Map(), ownTopic: null }));
     // A concept's own title is a better label than a tag's lower-case spelling.
     if (kind === 'concept' && !k.kinds.has('concept')) k.label = label;
     k.kinds.add(kind);
     k.books.add(book.slug);
     const id = `${book.slug} ${page.path}`;
-    if (!k.pages.has(id))
-      k.pages.set(id, { book: book.title, title: page.title, url: pageUrl(book, page), own: kind === 'concept' && page.concept && keywordKey(page.title) === key });
+    const own = kind === 'concept' && page.concept && keywordKey(page.title) === key;
+    if (!k.pages.has(id)) {
+      k.pages.set(id, { book: book.title, title: page.title, url: pageUrl(book, page), own });
+      for (const a of authorsOf(page)) k.authors.add(a);
+      if (page.topic) {
+        const t = k.topics.get(topicKey(page.topic)) ?? { label: page.topic, count: 0 };
+        t.count++;
+        k.topics.set(topicKey(page.topic), t);
+      }
+    }
+    if (own && page.topic) k.ownTopic = page.topic;
     if (!pageKeys.has(id)) pageKeys.set(id, new Set());
     pageKeys.get(id).add(key);
   };
 
   for (const book of readerBooks(books, catalogs)) {
-    const { pages } = catalogs.get(book.slug);
+    const { pages, authors: bookAuthors } = catalogs.get(book.slug);
+    // A page's authors: its own, else its book's, else the book's maintainer,
+    // as in authors() below.
+    const fallback = bookAuthors.length ? bookAuthors : book.maintainer ? [book.maintainer] : [];
+    const authorsOf = (page) => (page.authors.length ? page.authors : fallback);
     const byPath = new Map(pages.map((p) => [p.path, p]));
     for (const page of pages) {
       for (const tag of page.tags) {
         if (tag === 'concept') continue; // a marker, not a subject
-        note(keywordKey(tag), tag, 'tag', book, page);
+        note(keywordKey(tag), tag, 'tag', book, page, authorsOf);
       }
-      if (page.concept) note(keywordKey(page.title), page.title, 'concept', book, page);
+      if (page.concept) note(keywordKey(page.title), page.title, 'concept', book, page, authorsOf);
       // A book's home page links to everything; that says nothing about topics.
       if (page.path === '/') continue;
       for (const link of page.links) {
         const target = byPath.get(link);
-        if (target?.concept) note(keywordKey(target.title), target.title, 'concept', book, page);
+        if (target?.concept) note(keywordKey(target.title), target.title, 'concept', book, page, authorsOf);
       }
     }
   }
@@ -192,6 +215,9 @@ export function keywords(books, catalogs) {
       label: k.label,
       kind: k.kinds.has('concept') ? 'concept' : 'tag',
       books: k.books.size,
+      bookSlugs: [...k.books].sort(),
+      authors: [...k.authors].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      topic: keywordTopic(k),
       // The concept page itself first, then where it is used.
       pages: [...k.pages.values()]
         .sort((a, b) => b.own - a.own || a.book.localeCompare(b.book) || a.title.localeCompare(b.title))
@@ -206,6 +232,44 @@ export function keywords(books, catalogs) {
       return { a, b, weight };
     }),
   };
+}
+
+/** Two spellings of one topic are one topic. */
+export const topicKey = (label) => label.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * A keyword's topic: a concept page's own topic, else the topic most of the
+ * pages it appears on share (ties A–Z), else null.
+ */
+function keywordTopic(k) {
+  if (k.ownTopic) return k.ownTopic;
+  const [best] = [...k.topics.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }));
+  return best?.label ?? null;
+}
+
+/**
+ * Which colour slot each topic in the graph gets: the topics of the most
+ * graphed keywords first (ties A–Z), up to TOPIC_SLOTS. Decided once per
+ * build, so filtering never repaints a node. Returns [{ key, label, slot }].
+ */
+export function topicSlots(nodes) {
+  const count = new Map();
+  for (const n of nodes) {
+    if (!n.topic) continue;
+    const key = topicKey(n.topic);
+    const t = count.get(key) ?? { key, count: 0, spellings: new Map() };
+    t.count++;
+    t.spellings.set(n.topic, (t.spellings.get(n.topic) ?? 0) + 1);
+    count.set(key, t);
+  }
+  // Shown as most keywords spell it; on a tie, capitalised ("Ontology" over "ontology").
+  const upperFirst = new Intl.Collator('en', { caseFirst: 'upper' });
+  for (const t of count.values())
+    t.label = [...t.spellings].sort((a, b) => b[1] - a[1] || upperFirst.compare(a[0], b[0]))[0][0];
+  return [...count.values()]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }))
+    .slice(0, TOPIC_SLOTS)
+    .map(({ key, label }, slot) => ({ key, label, slot }));
 }
 
 /** The graph's share of the keywords: the most-used ones, and the edges between them. */

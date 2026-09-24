@@ -40,6 +40,21 @@
   --portal-measure:   720px;    /* the books' reading column */
   --portal-rhythm:    1.5rem;
   --portal-gutter:    2rem;
+
+  /* Topic colours for the key-word graph: eight categorical slots in a fixed
+     order, never cycled (a ninth topic is "Other"). The books' graph uses the
+     same values (quartz-edition-extras textbook-graph). Validated on the soft
+     surface: adjacent pairs clear the colour-vision and normal-vision floors;
+     slots 2–5 are under 3:1, so every node keeps its text label. */
+  --kw-topic-0: #2a78d6;
+  --kw-topic-1: #eb6834;
+  --kw-topic-2: #1baf7a;
+  --kw-topic-3: #eda100;
+  --kw-topic-4: #e87ba4;
+  --kw-topic-5: #008300;
+  --kw-topic-6: #4a3aa7;
+  --kw-topic-7: #e34948;
+  --kw-topic-other: #b5b4ae;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,6 +69,16 @@
     --portal-border:       #2E2E32;
     --portal-bg:           #161618;
     --portal-bg-soft:      #1D1D20;
+
+    --kw-topic-0: #3987e5;
+    --kw-topic-1: #d95926;
+    --kw-topic-2: #199e70;
+    --kw-topic-3: #c98500;
+    --kw-topic-4: #d55181;
+    --kw-topic-5: #008300;
+    --kw-topic-6: #9085e9;
+    --kw-topic-7: #e66767;
+    --kw-topic-other: #6e6e73;
   }
 }
 
@@ -212,13 +237,24 @@ a:hover { color: var(--portal-accent-hover); }
 .kw-edge { stroke: var(--portal-faint); opacity: 0.45; transition: stroke 120ms, opacity 120ms; }
 
 .kw-node { cursor: pointer; text-decoration: none; }
+.kw-node { --c: var(--kw-topic-other); }
 .kw-node circle {
-  fill: var(--portal-accent-flat);
+  fill: var(--c);
   stroke: var(--portal-bg-soft);
   stroke-width: 2;
   transition: opacity 120ms;
 }
-.kw-node--tag circle { fill: var(--portal-bg); stroke: var(--portal-accent-flat); stroke-width: 1.75; }
+/* A concept is a filled dot in its topic's colour; a tag is a ring in it. */
+.kw-node--tag circle { fill: var(--portal-bg); stroke: var(--c); stroke-width: 2; }
+[data-t="0"] { --c: var(--kw-topic-0); }
+[data-t="1"] { --c: var(--kw-topic-1); }
+[data-t="2"] { --c: var(--kw-topic-2); }
+[data-t="3"] { --c: var(--kw-topic-3); }
+[data-t="4"] { --c: var(--kw-topic-4); }
+[data-t="5"] { --c: var(--kw-topic-5); }
+[data-t="6"] { --c: var(--kw-topic-6); }
+[data-t="7"] { --c: var(--kw-topic-7); }
+[data-t="other"] { --c: var(--kw-topic-other); }
 .kw-node text {
   font-family: var(--portal-font);
   font-size: 12px;
@@ -241,17 +277,30 @@ svg.is-lit .kw-node.is-near circle, svg.is-lit .kw-node.is-near text { opacity: 
 svg.is-lit .kw-node.is-on text { font-weight: 600; }
 svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
 
-svg[data-show="concept"] .kw-node--tag,
-svg[data-show="tag"] .kw-node--concept { display: none; }
-svg[data-show="concept"] .kw-edge,
-svg[data-show="tag"] .kw-edge { opacity: 0.2; }
+/* Filtered out (portal.js): gone, with every edge that touches it. */
+.kw-node.is-out, .kw-edge.is-out { display: none; }
 
 .kw-filters {
   display: flex;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
   padding: 0.6rem 0.6rem 0;
+  font-size: 0.8rem;
+  color: var(--portal-muted);
 }
-.kw-filters[hidden] { display: none; }
+.kw-filters[hidden], .kw-count[hidden], .kw-reset[hidden] { display: none; }
+.kw-kinds { display: flex; gap: 0.25rem; }
+.kw-filter select {
+  max-width: 11rem;
+  font: inherit;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--portal-border);
+  border-radius: 6px;
+  background: var(--portal-bg);
+  color: var(--portal-ink);
+}
+.kw-count { margin: 0; padding: 0 0.6rem 0.5rem; font-size: 0.8rem; color: var(--portal-muted); }
 .kw-filters button, .kw-panel-close {
   font: inherit;
   font-size: 0.8rem;
@@ -299,8 +348,34 @@ svg[data-show="tag"] .kw-edge { opacity: 0.2; }
 }
 .kw-key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 .kw-key + .kw-key, .kw-legend .kw-key--tag { margin-left: 0.8rem; }
-.kw-key--concept { background: var(--portal-accent-flat); }
-.kw-key--tag { border: 1.75px solid var(--portal-accent-flat); background: var(--portal-bg); }
+.kw-key--concept { background: var(--portal-faint); }
+.kw-key--tag { border: 2px solid var(--portal-faint); background: var(--portal-bg); }
+
+.kw-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+.kw-topics button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font: inherit;
+  padding: 0.1rem 0.55rem 0.1rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--portal-ink);
+  cursor: pointer;
+}
+.kw-topics button:disabled { cursor: default; }
+.kw-topics button:not(:disabled):hover { border-color: var(--portal-border); }
+.kw-topics button[aria-pressed="true"] { border-color: var(--portal-accent-flat); background: var(--portal-wash); }
+.kw-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 
 /* --- recent changes ------------------------------------------------------ */
 

@@ -152,7 +152,7 @@ test('only live and preview are listable statuses', () => {
 
 /* --- catalogs: key words, recent changes, authors, topics ---------------- */
 
-import { readCatalog, keywords, recentChanges, authors, pageUrl, catalogUrl, fetchCatalogs } from '../scripts/catalog.mjs';
+import { readCatalog, keywords, recentChanges, authors, pageUrl, catalogUrl, fetchCatalogs, topicSlots, TOPIC_SLOTS } from '../scripts/catalog.mjs';
 import { layout, VIEW } from '../scripts/graph.mjs';
 
 const builderBook = () => ({
@@ -223,6 +223,47 @@ test('key words: tags and concepts, linked by the pages they share; the home pag
   const w = (a, b) => kw.edges.find((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a))?.weight ?? 0;
   assert.equal(w('emergence', 'monism'), 1);
   assert.equal(w('monism', 'ontology'), 2, 'chapter 3, and Monism tagged ontology');
+});
+
+test('key words carry a topic, their authors and books, for colour and the filters', () => {
+  const pages = catalog().pages.map((p) => ({ ...p }));
+  pages[1].topic = 'Ontology'; // Chapter 3
+  pages[1].authors = ['A. Author'];
+  pages[2].topic = 'Emergence studies'; // the Emergence concept page itself
+  pages[3].topic = 'ontology'; // Monism, spelt differently
+  const { listed, catalogs } = withCatalog({ pages, authors: ['Brandon Sommer'] });
+  const kw = keywords(listed, catalogs);
+  const by = (label) => kw.nodes.find((n) => n.label === label);
+  assert.equal(by('Emergence').topic, 'Emergence studies', 'a concept takes its own page\'s topic');
+  assert.equal(by('ontology').topic, 'Ontology', 'a tag takes the topic most of its pages share');
+  assert.deepEqual(by('ontology').authors, ['A. Author', 'Brandon Sommer'], 'page authors, else the book\'s');
+  assert.deepEqual(by('Monism').bookSlugs, ['social-research-methods']);
+  const slots = topicSlots(kw.nodes);
+  assert.deepEqual(slots.map((t) => [t.label, t.slot]), [['Ontology', 0], ['Emergence studies', 1]]);
+  // An older catalog has no topics: nothing breaks, everything is "Other".
+  const old = withCatalog();
+  assert.ok(keywords(old.listed, old.catalogs).nodes.every((n) => n.topic === null));
+});
+
+test('topics past the last colour slot are Other, never a new colour', () => {
+  const nodes = Array.from({ length: TOPIC_SLOTS + 3 }, (_, i) => ({ topic: `T${String(i).padStart(2, '0')}` }));
+  assert.equal(topicSlots(nodes).length, TOPIC_SLOTS);
+});
+
+test('the graph is coloured by topic and carries its filters', () => {
+  const pages = catalog().pages.map((p) => ({ ...p }));
+  pages[3].topic = 'Ontology'; // Monism; Chapter 3 and Emergence have none
+  pages[2].authors = ['A. Author'];
+  const { listed, catalogs } = withCatalog({ pages });
+  const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
+  const node = (label) => html.match(new RegExp(`<a class="kw-node[^>]*data-label="${label}"[^>]*>`))[0];
+  assert.match(node('Monism'), /data-t="0"/);
+  assert.match(node('Emergence'), /data-t="other"/, 'no topic of its own, and its pages have none');
+  assert.match(node('Emergence'), /data-authors="\[&quot;A\. Author&quot;,&quot;Brandon&quot;\]"/);
+  assert.match(html, /<select data-filter="topic">.*<option value="0">Ontology<\/option><option value="other">Other<\/option>/);
+  assert.match(html, /<select data-filter="author">/);
+  assert.doesNotMatch(html, /data-filter="book"/, 'one live book: no book filter');
+  assert.match(html, /<ul class="kw-topics"[^>]*><li><button type="button" data-t="0" disabled>/);
 });
 
 test('recent changes: one row per book per day, newest first', () => {

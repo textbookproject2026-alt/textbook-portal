@@ -24,7 +24,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { authors, bookStats, catalogUrl, fetchCatalogs, graphOf, keywords, readCatalog, recentChanges } from './catalog.mjs';
+import { authors, bookStats, catalogUrl, fetchCatalogs, graphOf, keywords, readCatalog, recentChanges, topicKey, topicSlots } from './catalog.mjs';
 import { VIEW, layout, radius } from './graph.mjs';
 
 const REGISTRY_REPO = 'textbookproject2026-alt/textbook-registry';
@@ -232,13 +232,18 @@ function renderSection({ className, heading, books, catalogs, id }) {
   ].join('\n');
 }
 
-/* The keyword graph: a finished SVG, every node a link into the topic index.
-   src/portal.js adds highlighting and the side panel. */
-function renderGraph(kw) {
+/* The keyword graph: a finished SVG, every node a link into the topic index,
+   coloured by topic. src/portal.js adds highlighting, the side panel and the
+   filters (kind, topic, author, book); their data is on each node. */
+function renderGraph(kw, books) {
   const g = graphOf(kw);
   if (g.nodes.length < 2) return null;
   const placed = layout(g);
   const at = new Map(placed.map((n) => [n.key, n]));
+  const slots = topicSlots(g.nodes);
+  const slotOf = new Map(slots.map((t) => [t.key, t.slot]));
+  // A slot number, or "other": a topic past the last slot, or none.
+  const slot = (n) => (n.topic && slotOf.has(topicKey(n.topic)) ? String(slotOf.get(topicKey(n.topic))) : 'other');
   const maxW = Math.max(...g.edges.map((e) => e.weight), 1);
   const edges = g.edges
     .map((e) => {
@@ -253,9 +258,10 @@ function renderGraph(kw) {
       const r = radius(n.pages.length).toFixed(1);
       const right = n.x < VIEW.width - 120;
       const label = escapeHtml(shownLabel(n));
-      const title = `${shownLabel(n)} — ${plural(n.pages.length, 'page')}${n.books > 1 ? `, ${n.books} books` : ''}`;
+      const title = `${shownLabel(n)} — ${plural(n.pages.length, 'page')}${n.books > 1 ? `, ${n.books} books` : ''}${n.topic ? ` · ${n.topic}` : ''}`;
       return [
-        `<a class="kw-node kw-node--${n.kind}" href="#${topicId(n.key)}" data-key="${escapeHtml(n.key)}" data-topic="${topicId(n.key)}" data-label="${label}" data-kind="${n.kind}" aria-label="${escapeHtml(title)}">`,
+        `<a class="kw-node kw-node--${n.kind}" href="#${topicId(n.key)}" data-key="${escapeHtml(n.key)}" data-topic="${topicId(n.key)}" data-label="${label}" data-kind="${n.kind}"`,
+        ` data-t="${slot(n)}" data-authors="${escapeHtml(JSON.stringify(n.authors))}" data-books="${escapeHtml(JSON.stringify(n.bookSlugs))}" aria-label="${escapeHtml(title)}">`,
         `<title>${escapeHtml(title)}</title>`,
         `<circle cx="${n.x}" cy="${n.y}" r="${r}"/>`,
         `<text x="${right ? n.x + Number(r) + 5 : n.x - Number(r) - 5}" y="${n.y + 4}"${right ? '' : ' text-anchor="end"'}>${label}</text>`,
@@ -263,22 +269,47 @@ function renderGraph(kw) {
       ].join('');
     })
     .join('\n        ');
+
   const hasBoth = g.nodes.some((n) => n.kind === 'tag') && g.nodes.some((n) => n.kind === 'concept');
+  const hasOther = g.nodes.some((n) => slot(n) === 'other');
+  const option = (value, text) => `<option value="${escapeHtml(value)}">${escapeHtml(text)}</option>`;
+  const select = (name, label, options) =>
+    `<label class="kw-filter">${label} <select data-filter="${name}"><option value="">All</option>${options.join('')}</select></label>`;
+  const graphAuthors = [...new Set(g.nodes.flatMap((n) => n.authors))].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  const graphBooks = books.filter((b) => g.nodes.some((n) => n.bookSlugs.includes(b.slug)));
+  const controls = [
+    hasBoth
+      ? '<div class="kw-kinds" role="group" aria-label="Show"><button type="button" data-show="all" aria-pressed="true">All</button><button type="button" data-show="concept" aria-pressed="false">Concepts</button><button type="button" data-show="tag" aria-pressed="false">Tags</button></div>'
+      : null,
+    slots.length
+      ? select('topic', 'Topic', [...slots.map((t) => option(String(t.slot), t.label)), ...(hasOther ? [option('other', 'Other')] : [])])
+      : null,
+    graphAuthors.length > 1 ? select('author', 'Author', graphAuthors.map((a) => option(a, a))) : null,
+    graphBooks.length > 1 ? select('book', 'Book', graphBooks.map((b) => option(b.slug, b.title))) : null,
+  ].filter(Boolean);
+  // The topic key doubles as a filter once portal.js enables it.
+  const legend = [
+    ...slots.map((t) => `<li><button type="button" data-t="${t.slot}" disabled><span class="kw-swatch" data-t="${t.slot}"></span>${escapeHtml(t.label)}</button></li>`),
+    ...(slots.length && hasOther ? ['<li><button type="button" data-t="other" disabled><span class="kw-swatch" data-t="other"></span>Other</button></li>'] : []),
+  ];
+
   return [
     '    <section class="section section--keywords" id="keywords">',
     '      <h2>Key words</h2>',
-    '      <p class="section-lead">Tags and concept pages across the books. Linked words appear on the same pages; larger ones on more of them. Choose a word to see where it appears.</p>',
+    '      <p class="section-lead">Tags and concept pages across the books, coloured by topic. Linked words appear on the same pages; larger ones on more of them. Choose a word to see where it appears.</p>',
     '      <div class="kw-graph">',
-    hasBoth
-      ? '        <div class="kw-filters" role="group" aria-label="Show" hidden><button type="button" data-show="all" aria-pressed="true">All</button><button type="button" data-show="concept" aria-pressed="false">Concepts</button><button type="button" data-show="tag" aria-pressed="false">Tags</button></div>'
+    controls.length
+      ? `        <div class="kw-filters" hidden>${controls.join('')}<button type="button" class="kw-reset" hidden>Clear filters</button></div>`
       : null,
-    `        <svg viewBox="0 0 ${VIEW.width} ${VIEW.height}" data-show="all" aria-labelledby="kw-graph-title">`,
+    `        <svg viewBox="0 0 ${VIEW.width} ${VIEW.height}" aria-labelledby="kw-graph-title">`,
     `        <title id="kw-graph-title">Graph of ${plural(g.nodes.length, 'key word')} and the pages they share</title>`,
     `        <g class="kw-edges">${edges ? `\n        ${edges}\n        ` : ''}</g>`,
     `        ${nodes}`,
     '        </svg>',
+    '        <p class="kw-count" aria-live="polite" hidden></p>',
     '        <div class="kw-panel" aria-live="polite" hidden></div>',
     '      </div>',
+    legend.length ? `      <ul class="kw-topics" aria-label="Topics">${legend.join('')}</ul>` : null,
     '      <p class="kw-legend"><span class="kw-key kw-key--concept"></span>Concept page<span class="kw-key kw-key--tag"></span>Tag</p>',
     '    </section>',
   ]
@@ -377,7 +408,7 @@ export function renderPage({ books, sha, css, js = '', catalogs = new Map() }) {
 
   const parts = [
     ['books', renderSection({ className: 'section--live', heading: live.length === 1 ? 'The book' : 'The books', books: live, catalogs, id: 'books' })],
-    ['keywords', renderGraph(kw)],
+    ['keywords', renderGraph(kw, live)],
     ['recent', renderRecent(recentChanges(books, catalogs))],
     ['authors', renderAuthors(authors(books, catalogs))],
     ['topics', renderTopics(kw.nodes)],

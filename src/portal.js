@@ -5,8 +5,9 @@
  * Progressive enhancement only. Without it the page is complete: the graph is
  * a finished SVG whose nodes link to the topic index, and every list is plain
  * HTML. With it: hovering or focusing a keyword lights up its neighbours, a
- * click opens the keyword's pages beside the graph, the graph filters to tags
- * or concepts, and the topic index filters as you type.
+ * click opens the keyword's pages beside the graph, the graph filters by kind
+ * (tags or concepts), topic, author and book, and the topic index filters as
+ * you type.
  *
  * Reads only the page's own DOM; fetches nothing. Any error leaves the static
  * page exactly as it was.
@@ -98,21 +99,83 @@
     });
 
     var filters = root.querySelector('.kw-filters');
+    var legend = root.parentNode.querySelector('.kw-topics');
+    var count = root.querySelector('.kw-count');
+    var reset = filters && filters.querySelector('.kw-reset');
+    var selects = filters ? Array.prototype.slice.call(filters.querySelectorAll('select[data-filter]')) : [];
+    var legendButtons = legend ? Array.prototype.slice.call(legend.querySelectorAll('button[data-t]')) : [];
+    // Every filter at once: a node shows when it matches all that are set.
+    var want = { kind: 'all', topic: '', author: '', book: '' };
+    var list = function (n, attr) {
+      try { return JSON.parse(n.getAttribute(attr) || '[]'); } catch (e) { return []; }
+    };
+    var info = nodes.map(function (n) {
+      return { node: n, authors: list(n, 'data-authors'), books: list(n, 'data-books') };
+    });
+
+    function apply() {
+      var shown = {};
+      var total = 0;
+      info.forEach(function (x) {
+        var d = x.node.dataset;
+        var ok =
+          (want.kind === 'all' || d.kind === want.kind) &&
+          (!want.topic || d.t === want.topic) &&
+          (!want.author || x.authors.indexOf(want.author) !== -1) &&
+          (!want.book || x.books.indexOf(want.book) !== -1);
+        x.node.classList.toggle('is-out', !ok);
+        if (ok) { shown[d.key] = true; total++; }
+      });
+      edges.forEach(function (e) {
+        e.classList.toggle('is-out', !(shown[e.dataset.a] && shown[e.dataset.b]));
+      });
+      if (selected && !shown[selected]) select(null);
+      var active = want.kind !== 'all' || want.topic || want.author || want.book;
+      if (reset) reset.hidden = !active;
+      if (count) {
+        count.hidden = !active;
+        count.textContent = total === 0
+          ? 'No key word matches these filters.'
+          : 'Showing ' + total + ' of ' + nodes.length + ' key words.';
+      }
+      if (filters) {
+        Array.prototype.forEach.call(filters.querySelectorAll('button[data-show]'), function (x) {
+          x.setAttribute('aria-pressed', String(x.dataset.show === want.kind));
+        });
+      }
+      selects.forEach(function (sel) { sel.value = want[sel.dataset.filter]; });
+      legendButtons.forEach(function (b) {
+        b.setAttribute('aria-pressed', String(want.topic === b.dataset.t));
+      });
+    }
+
     if (filters) {
       filters.hidden = false;
       filters.addEventListener('click', function (ev) {
         var b = ev.target.closest('button[data-show]');
-        if (!b) return;
-        Array.prototype.forEach.call(filters.querySelectorAll('button'), function (x) {
-          x.setAttribute('aria-pressed', String(x === b));
-        });
-        svg.dataset.show = b.dataset.show;
-        if (selected) {
-          var s = svg.querySelector('.kw-node[data-key="' + CSS.escape(selected) + '"]');
-          if (s && b.dataset.show !== 'all' && s.dataset.kind !== b.dataset.show) select(null);
+        if (b) { want.kind = b.dataset.show; apply(); }
+        if (ev.target.closest('.kw-reset')) {
+          want = { kind: 'all', topic: '', author: '', book: '' };
+          apply();
         }
       });
+      selects.forEach(function (sel) {
+        sel.addEventListener('change', function () {
+          want[sel.dataset.filter] = sel.value;
+          apply();
+        });
+      });
     }
+    // The topic key is a shortcut to the topic filter: choose again to clear.
+    legendButtons.forEach(function (b) {
+      b.disabled = false;
+      b.setAttribute('aria-pressed', 'false');
+      b.title = 'Show only this topic';
+      b.addEventListener('click', function () {
+        want.topic = want.topic === b.dataset.t ? '' : b.dataset.t;
+        apply();
+      });
+    });
   }
 
   function enhanceTopics(root) {
