@@ -3,15 +3,19 @@
 The platform portal: one static page at `confused4now.org` listing the textbooks
 this platform publishes, generated from the registry.
 
-It is a listing page, not an app. No framework, no dependencies, no JavaScript on
-the page, and nothing in the reading path of any book.
+It is a static page, not an app. No framework, no dependencies, nothing fetched in
+the browser, and nothing in the reading path of any book. It has a small inline
+script, and the page is complete without it (below).
 
 ```
-scripts/build.mjs   fetches the registry and writes the page
-src/styles.css      the palette and type, inlined into the page at build time
-static/_headers     Cloudflare Pages control file (not a URL)
-test/               what the build must not do
-public/             GENERATED, git-ignored
+scripts/build.mjs     fetches the registry and the books' catalogs, writes the page
+scripts/catalog.mjs   reads the catalogs; derives key words, recent changes, authors
+scripts/graph.mjs     lays out the key-word graph at build time
+src/styles.css        the palette and type, inlined into the page at build time
+src/portal.js         progressive enhancement for the graph and topic filter, inlined
+static/_headers       Cloudflare Pages control file (not a URL)
+test/                 what the build must not do
+public/               GENERATED, git-ignored
 ```
 
 ## How it builds
@@ -30,8 +34,9 @@ other registry consumer: a reader's page load must not depend on GitHub being up
 and a registry that can't be read must fail a build rather than empty a live page.
 
 ```bash
-npm run build      # latest registry main
+npm run build      # latest registry main, catalogs from the books' Pages projects
 npm run preview    # build from ../textbook-registry/registry.json, for local work
+CATALOG_DIR=<dir> npm run preview   # and catalogs from <dir>/<slug>.json, offline
 npm test
 ```
 
@@ -73,6 +78,50 @@ previous page up rather than publish this":
 
 A failed Pages build leaves the previous deployment live. That is the point.
 
+## The sections
+
+In page order, each left out when it has nothing to show:
+
+- **The books** — the live books, with page and concept-page counts and the date of the
+  latest change, from the catalog.
+- **Key words** — a graph of every tag and concept page across the live books. Two words
+  are joined when they appear on the same page; a word is larger the more pages it is on.
+  A concept "appears" on its own page and every page linking to it; a book's home page
+  doesn't count, because it links to everything. Up to 60 words, the most used.
+- **Recently added and changed** — one row per book per day, newest first, up to 8. A
+  commit that touches six concept pages is one row, naming three.
+- **Browse by author** — each book's `authors` from its catalog (the book's `index.md`
+  frontmatter, or its pages'), else the registry's maintainer.
+- **Browse by topic** — every key word A–Z, with the pages it appears on. The graph's
+  nodes link here.
+- **Not for readers** — preview books, as before. They never feed the sections above.
+
+### Where the catalogs come from
+
+Each book on the builder (registry `site.host.builder: "quartz-book"`) publishes
+`/.well-known/textbook-catalog.json` at every build (quartz-book README, *The catalog*).
+The portal reads it at build time from `https://<site.host.project>.pages.dev/`, not from
+`site.domain`, because a book still on Obsidian Publish has its builder output on Pages
+only. For such a book the portal links pages at their Publish addresses (spaces as `+`),
+so concept links don't 404 before the cutover.
+
+**The hard rule covers catalogs too.** A catalog that is missing, slow, of another
+version or another book's costs that book its extras, with a warning in the build log. It
+never costs the book its place in the list, and never fails the build.
+
+**Keeping it current.** A book's change reaches the portal at the portal's next build.
+`quartz-book`'s `reconcile` fires the portal's deploy hook after a run that deployed a live
+branch, when its `PORTAL_DEPLOY_HOOK` secret is set (the same hook URL as
+`textbook-registry`'s).
+
+### The script
+
+`src/portal.js` is inlined at build time, like the stylesheet, so the portal is still two
+files. Without it the graph is a finished SVG whose every node links to its entry under
+*Browse by topic*. With it, hovering or focusing a word lights up its neighbours, a click
+opens its pages beside the graph (Escape closes), the graph filters to concepts or tags,
+and the topic index filters as you type. It reads only the page's own DOM.
+
 ## `/version.txt`
 
 The portal's equivalent of the function's `X-Registry-Version` header: the registry
@@ -97,7 +146,7 @@ costs nothing to keep.
 
 **This is why the portal is exactly two files.** Every URL the portal serves needs an
 exemption in that rule, so the build writes `/` and `/version.txt` and nothing else:
-the stylesheet is inlined and the favicon is a `data:` URI. *If you ever add a file
+the stylesheet and script are inlined and the favicon is a `data:` URI. *If you ever add a file
 to `public/`, add it to the rule*, or the deploy will 301 away and the portal will
 look broken in a way the build log won't explain.
 

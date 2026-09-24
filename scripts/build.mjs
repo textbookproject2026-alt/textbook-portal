@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Build the platform portal: one HTML page listing the platform's books,
- * generated from the registry at BUILD time.
+ * generated from the registry and the books' catalogs (scripts/catalog.mjs)
+ * at BUILD time.
  *
  * Nothing is fetched in the browser. The reasoning is the same as every other
  * registry consumer's (DESIGN §2b, and the suggest-edit function's
@@ -23,6 +24,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { authors, bookStats, catalogUrl, fetchCatalogs, graphOf, keywords, readCatalog, recentChanges } from './catalog.mjs';
+import { VIEW, layout, radius } from './graph.mjs';
 
 const REGISTRY_REPO = 'textbookproject2026-alt/textbook-registry';
 const SCHEMA_VERSION = 1;
@@ -32,6 +35,7 @@ const ROOT = new URL('../', import.meta.url);
 const OUT_DIR = fileURLToPath(new URL('public/', ROOT));
 const STATIC_DIR = fileURLToPath(new URL('static/', ROOT));
 const CSS_FILE = fileURLToPath(new URL('src/styles.css', ROOT));
+const JS_FILE = fileURLToPath(new URL('src/portal.js', ROOT));
 
 export class BuildError extends Error {}
 
@@ -142,6 +146,10 @@ export function selectBooks(registry) {
       // one must not cost the book its place in the list.
       maintainer: isText(book?.maintainer?.name) ? book.maintainer.name.trim() : null,
       templatePreview: isHttpsUrl(book?.editions?.template_preview) ? book.editions.template_preview : null,
+      // Where the book's catalog is (scripts/catalog.mjs), and how its pages
+      // are addressed. Neither can cost the book its place in the list.
+      host: isText(book?.site?.host?.kind) ? book.site.host.kind : null,
+      catalogUrl: catalogUrl(book),
     });
   });
 
@@ -174,7 +182,15 @@ export function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
-function renderBook(book) {
+const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+export const formatDate = (iso) => DATE.format(new Date(iso));
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** An id for a keyword's entry in the topic index, safe in HTML and CSS. */
+export const topicId = (key) => `topic-${key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x'}`;
+
+function renderBook(book, stats) {
   const label = STATUS_LABELS[book.status];
   const meta = [];
   if (book.maintainer) meta.push(`Maintained by ${escapeHtml(book.maintainer)}`);
@@ -188,6 +204,15 @@ function renderBook(book) {
     label ? `        <p class="badge">${escapeHtml(label)}</p>` : null,
     `        <h3><a href="${escapeHtml(book.url)}">${escapeHtml(book.title)}</a></h3>`,
     `        <p class="summary">${escapeHtml(book.summary)}</p>`,
+    stats
+      ? `        <p class="stats">${[
+          plural(stats.pages, 'page'),
+          stats.concepts ? plural(stats.concepts, 'concept page') : null,
+          stats.updated ? `updated ${escapeHtml(formatDate(stats.updated))}` : null,
+        ]
+          .filter(Boolean)
+          .join('<span class="sep">·</span>')}</p>`
+      : null,
     `        <p class="meta">${meta.join('<span class="sep">·</span>')}</p>`,
     '      </li>',
   ]
@@ -195,26 +220,174 @@ function renderBook(book) {
     .join('\n');
 }
 
-function renderSection({ className, heading, books }) {
+function renderSection({ className, heading, books, catalogs, id }) {
   if (books.length === 0) return null;
   return [
-    `    <section class="section ${className}">`,
+    `    <section class="section ${className}"${id ? ` id="${id}"` : ''}>`,
     `      <h2>${escapeHtml(heading)}</h2>`,
     '      <ul class="books">',
-    books.map(renderBook).join('\n'),
+    books.map((b) => renderBook(b, bookStats(b, catalogs))).join('\n'),
     '      </ul>',
     '    </section>',
   ].join('\n');
 }
 
-export function renderPage({ books, sha, css }) {
+/* The keyword graph: a finished SVG, every node a link into the topic index.
+   src/portal.js adds highlighting and the side panel. */
+function renderGraph(kw) {
+  const g = graphOf(kw);
+  if (g.nodes.length < 2) return null;
+  const placed = layout(g);
+  const at = new Map(placed.map((n) => [n.key, n]));
+  const maxW = Math.max(...g.edges.map((e) => e.weight), 1);
+  const edges = g.edges
+    .map((e) => {
+      const a = at.get(e.a);
+      const b = at.get(e.b);
+      const w = (0.6 + (1.6 * e.weight) / maxW).toFixed(2);
+      return `<line class="kw-edge" data-a="${escapeHtml(e.a)}" data-b="${escapeHtml(e.b)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-width="${w}"/>`;
+    })
+    .join('\n        ');
+  const nodes = placed
+    .map((n) => {
+      const r = radius(n.pages.length).toFixed(1);
+      const right = n.x < VIEW.width - 120;
+      const label = escapeHtml(shownLabel(n));
+      const title = `${shownLabel(n)} — ${plural(n.pages.length, 'page')}${n.books > 1 ? `, ${n.books} books` : ''}`;
+      return [
+        `<a class="kw-node kw-node--${n.kind}" href="#${topicId(n.key)}" data-key="${escapeHtml(n.key)}" data-topic="${topicId(n.key)}" data-label="${label}" data-kind="${n.kind}" aria-label="${escapeHtml(title)}">`,
+        `<title>${escapeHtml(title)}</title>`,
+        `<circle cx="${n.x}" cy="${n.y}" r="${r}"/>`,
+        `<text x="${right ? n.x + Number(r) + 5 : n.x - Number(r) - 5}" y="${n.y + 4}"${right ? '' : ' text-anchor="end"'}>${label}</text>`,
+        '</a>',
+      ].join('');
+    })
+    .join('\n        ');
+  const hasBoth = g.nodes.some((n) => n.kind === 'tag') && g.nodes.some((n) => n.kind === 'concept');
+  return [
+    '    <section class="section section--keywords" id="keywords">',
+    '      <h2>Key words</h2>',
+    '      <p class="section-lead">Tags and concept pages across the books. Linked words appear on the same pages; larger ones on more of them. Choose a word to see where it appears.</p>',
+    '      <div class="kw-graph">',
+    hasBoth
+      ? '        <div class="kw-filters" role="group" aria-label="Show" hidden><button type="button" data-show="all" aria-pressed="true">All</button><button type="button" data-show="concept" aria-pressed="false">Concepts</button><button type="button" data-show="tag" aria-pressed="false">Tags</button></div>'
+      : null,
+    `        <svg viewBox="0 0 ${VIEW.width} ${VIEW.height}" data-show="all" aria-labelledby="kw-graph-title">`,
+    `        <title id="kw-graph-title">Graph of ${plural(g.nodes.length, 'key word')} and the pages they share</title>`,
+    `        <g class="kw-edges">${edges ? `\n        ${edges}\n        ` : ''}</g>`,
+    `        ${nodes}`,
+    '        </svg>',
+    '        <div class="kw-panel" aria-live="polite" hidden></div>',
+    '      </div>',
+    '      <p class="kw-legend"><span class="kw-key kw-key--concept"></span>Concept page<span class="kw-key kw-key--tag"></span>Tag</p>',
+    '    </section>',
+  ]
+    .filter((l) => l !== null)
+    .join('\n');
+}
+
+/** Up to three pages by name, then "and N more". */
+const SHOW_PAGES = 3;
+
+function renderRecent(changes) {
+  if (changes.length === 0) return null;
+  const items = changes.map((c) => {
+    const shown = c.pages.slice(0, SHOW_PAGES).map((p) => `<a href="${escapeHtml(p.url)}">${escapeHtml(p.title)}</a>`);
+    const more = c.pages.length - shown.length;
+    return (
+      `        <li><time datetime="${escapeHtml(c.date)}">${escapeHtml(formatDate(c.date))}</time>` +
+      `<span class="change change--${c.change}">${c.change === 'added' ? 'New' : 'Updated'}</span>` +
+      `<span class="recent-pages">${shown.join(', ')}${more > 0 ? ` and ${plural(more, 'other page')}` : ''}</span>` +
+      `<span class="recent-book">${escapeHtml(c.book)}</span></li>`
+    );
+  });
+  return [
+    '    <section class="section section--recent" id="recent">',
+    '      <h2>Recently added and changed</h2>',
+    '      <ul class="recent">',
+    ...items,
+    '      </ul>',
+    '    </section>',
+  ].join('\n');
+}
+
+function renderAuthors(list) {
+  if (list.length === 0) return null;
+  return [
+    '    <section class="section section--authors" id="authors">',
+    '      <h2>Browse by author</h2>',
+    '      <ul class="authors">',
+    ...list.map(
+      (a) =>
+        `        <li><span class="author">${escapeHtml(a.name)}</span>` +
+        `<span class="author-books">${a.books.map((b) => `<a href="${escapeHtml(b.url)}">${escapeHtml(b.title)}</a>`).join(', ')}</span></li>`,
+    ),
+    '      </ul>',
+    '    </section>',
+  ].join('\n');
+}
+
+function renderTopics(nodes) {
+  if (nodes.length === 0) return null;
+  const groups = new Map();
+  for (const n of nodes) {
+    const first = n.label.normalize('NFKD').charAt(0).toUpperCase();
+    const letter = /[A-Z]/.test(first) ? first : '#';
+    if (!groups.has(letter)) groups.set(letter, []);
+    groups.get(letter).push(n);
+  }
+  const topic = (n) =>
+    [
+      `          <li class="topic" id="${topicId(n.key)}" data-label="${escapeHtml(n.label.toLowerCase())}">`,
+      `            <h4>${escapeHtml(shownLabel(n))}<span class="topic-kind">${n.kind === 'concept' ? 'concept' : 'tag'}</span></h4>`,
+      '            <ul>',
+      ...n.pages.map(
+        (p) =>
+          `              <li${p.own ? ' class="topic-own"' : ''}><a href="${escapeHtml(p.url)}">${escapeHtml(p.title)}</a><span class="topic-book">${escapeHtml(p.book)}</span></li>`,
+      ),
+      '            </ul>',
+      '          </li>',
+    ].join('\n');
+  return [
+    '    <section class="section section--topics topics" id="topics">',
+    '      <h2>Browse by topic</h2>',
+    '      <p class="topics-filter" hidden><label>Filter topics <input type="search" autocomplete="off" spellcheck="false"></label></p>',
+    ...[...groups].map(([letter, list]) =>
+      [
+        `      <div class="topic-letter">`,
+        `        <h3>${escapeHtml(letter)}</h3>`,
+        '        <ul class="topic-list">',
+        ...list.map(topic),
+        '        </ul>',
+        '      </div>',
+      ].join('\n'),
+    ),
+    '      <p class="topics-empty" hidden>No topic matches.</p>',
+    '    </section>',
+  ].join('\n');
+}
+
+/** A keyword as readers see it: a concept by its title, a tag as Obsidian writes it. */
+const shownLabel = (n) => (n.kind === 'tag' ? `#${n.label}` : n.label);
+
+export function renderPage({ books, sha, css, js = '', catalogs = new Map() }) {
   const live = books.filter((b) => b.status === 'live');
   const preview = books.filter((b) => b.status === 'preview');
+  const kw = keywords(books, catalogs);
 
-  const sections = [
-    renderSection({ className: 'section--live', heading: live.length === 1 ? 'The book' : 'The books', books: live }),
-    renderSection({ className: 'section--preview', heading: 'Not for readers', books: preview }),
-  ].filter(Boolean);
+  const parts = [
+    ['books', renderSection({ className: 'section--live', heading: live.length === 1 ? 'The book' : 'The books', books: live, catalogs, id: 'books' })],
+    ['keywords', renderGraph(kw)],
+    ['recent', renderRecent(recentChanges(books, catalogs))],
+    ['authors', renderAuthors(authors(books, catalogs))],
+    ['topics', renderTopics(kw.nodes)],
+    [null, renderSection({ className: 'section--preview', heading: 'Not for readers', books: preview, catalogs })],
+  ].filter(([, html]) => html);
+  const sections = parts.map(([, html]) => html);
+
+  const NAV = { books: live.length === 1 ? 'The book' : 'Books', keywords: 'Key words', recent: 'Recent', authors: 'Authors', topics: 'Topics' };
+  const navItems = parts.filter(([id]) => id && NAV[id]).map(([id]) => `<a href="#${id}">${NAV[id]}</a>`);
+  const nav = navItems.length > 1 ? `    <nav class="jump" aria-label="On this page">${navItems.join('')}</nav>\n` : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -236,7 +409,7 @@ ${css.trim()}
       <h1>Open textbooks</h1>
       <p>Open-access textbooks, each written and maintained by its own author, published and kept online here.</p>
     </header>
-
+${nav}
 ${sections.join('\n\n')}
 
     <footer class="colophon">
@@ -244,7 +417,7 @@ ${sections.join('\n\n')}
       <p>This page is generated from the platform registry, and lists only what the registry holds.</p>
     </footer>
   </main>
-</body>
+${js.trim() ? `<script>\n${js.trim()}\n</script>\n` : ''}</body>
 </html>
 `;
 }
@@ -268,6 +441,19 @@ function copyStatic() {
     });
 }
 
+function readLocalCatalogs(books, dir) {
+  const catalogs = new Map();
+  const warnings = [];
+  for (const book of books.filter((b) => b.catalogUrl)) {
+    try {
+      catalogs.set(book.slug, readCatalog(JSON.parse(readFileSync(`${dir}/${book.slug}.json`, 'utf8')), book.slug));
+    } catch (err) {
+      warnings.push(`${book.slug}: no local catalog used — ${err.message}`);
+    }
+  }
+  return { catalogs, warnings };
+}
+
 async function main() {
   const local = process.env.REGISTRY_FILE;
   let registry, sha;
@@ -288,8 +474,16 @@ async function main() {
   const { listed, skipped } = selectBooks(registry);
   for (const s of skipped) console.warn(`build: WARNING skipped ${s.where} — ${s.reason}`);
 
+  // Each book's catalog, for everything past the list. A local preview can
+  // point CATALOG_DIR at a folder of <slug>.json files instead.
+  const { catalogs, warnings } = process.env.CATALOG_DIR
+    ? readLocalCatalogs(listed, process.env.CATALOG_DIR)
+    : await fetchCatalogs(listed);
+  for (const w of warnings) console.warn(`build: WARNING ${w}`);
+
   const css = readFileSync(CSS_FILE, 'utf8');
-  const html = renderPage({ books: listed, sha, css });
+  const js = readFileSync(JS_FILE, 'utf8');
+  const html = renderPage({ books: listed, sha, css, js, catalogs });
 
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
@@ -301,7 +495,7 @@ async function main() {
   const copied = copyStatic();
 
   console.log(
-    `build: ${listed.length} book(s) listed` +
+    `build: ${listed.length} book(s) listed, ${catalogs.size} with a catalog` +
       (skipped.length ? `, ${skipped.length} skipped` : '') +
       ` -> public/index.html, public/version.txt` +
       (copied.length ? `, ${copied.join(', ')}` : ''),
