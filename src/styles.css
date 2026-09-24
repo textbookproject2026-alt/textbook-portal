@@ -438,6 +438,59 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
 .topic-book { margin-left: 0.5rem; font-size: 0.82rem; color: var(--portal-muted); }
 .topics-empty { color: var(--portal-muted); }
 
+/* --- publish your textbook here ----------------------------------------- */
+
+.request-form { max-width: 34em; }
+.request-form[hidden], .rq-nojs[hidden] { display: none; }
+.rq-field { margin: 0 0 1rem; }
+.rq-field > label { display: block; font-weight: 600; font-size: 0.95rem; }
+.rq-optional { font-weight: 400; color: var(--portal-muted); }
+.rq-hint { display: block; font-size: 0.85rem; color: var(--portal-muted); margin: 0.1rem 0 0.3rem; }
+.rq-field input[type="text"], .rq-field input[type="email"], .rq-field input[type="url"], .rq-field textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--portal-ink);
+  background: var(--portal-bg);
+  border: 1px solid var(--portal-border);
+  border-radius: 6px;
+}
+.rq-field textarea { resize: vertical; }
+.rq-field input:focus-visible, .rq-field textarea:focus-visible, .rq-actions button:focus-visible {
+  outline: 2px solid var(--portal-accent-flat);
+  outline-offset: 1px;
+}
+.rq-field input[type="file"] { margin-top: 0.3rem; font-size: 0.9rem; max-width: 100%; }
+.rq-agree label { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 400; font-size: 0.95rem; }
+.rq-agree input { margin-top: 0.35rem; flex: none; }
+.rq-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.rq-actions { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+.rq-actions button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--portal-accent);
+  color: #fff;
+  cursor: pointer;
+}
+.rq-actions button:hover { background: var(--portal-accent-hover); }
+.rq-actions button:disabled { opacity: 0.6; cursor: progress; }
+.rq-status { font-size: 0.9rem; color: var(--portal-muted); }
+.rq-status--bad { color: #b3261e; }
+.rq-done { max-width: 34em; padding: 1rem 1.25rem; border-radius: 8px; background: var(--portal-wash); }
+.rq-done p { margin: 0 0 0.4rem; }
+.rq-done-title { font-weight: 600; }
+
+@media (prefers-color-scheme: dark) {
+  .rq-actions button { color: #161618; }
+  .rq-status--bad { color: #f2b8b5; }
+}
+
 /* --- footer ------------------------------------------------------------- */
 
 .colophon {
@@ -460,5 +513,5 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
 }
 
 @media print {
-  .jump, .kw-filters, .kw-panel, .topics-filter { display: none !important; }
+  .jump, .kw-filters, .kw-panel, .topics-filter, .section--request { display: none !important; }
 }

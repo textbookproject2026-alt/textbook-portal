@@ -22,6 +22,12 @@
   } catch (e) {
     /* the static page stands */
   }
+  try {
+    var request = document.querySelector('.request-form');
+    if (request) enhanceRequest(request);
+  } catch (e) {
+    /* the no-JavaScript note stands */
+  }
 
   function enhanceGraph(root) {
     var svg = root.querySelector('svg');
@@ -197,6 +203,86 @@
         group.hidden = !group.querySelector('.topic:not([hidden])');
       });
       if (empty) empty.hidden = shown !== 0;
+    });
+  }
+
+  /* The request form: files are read in the browser and sent as base64 inside
+     one JSON body (the endpoint's limit is 3 MB of files in total). */
+  function enhanceRequest(form) {
+    var MAX = 3 * 1024 * 1024;
+    var nojs = document.querySelector('.rq-nojs');
+    if (nojs) nojs.hidden = true;
+    form.hidden = false;
+    var button = form.querySelector('button[type="submit"]');
+    var status = form.querySelector('.rq-status');
+    var say = function (text, bad) {
+      status.textContent = text;
+      status.className = 'rq-status' + (bad ? ' rq-status--bad' : '');
+    };
+
+    function readFile(file) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve({ name: file.name, data: String(r.result).split(',')[1] || '' }); };
+        r.onerror = function () { reject(new Error('read')); };
+        r.readAsDataURL(file);
+      });
+    }
+
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      if (!form.reportValidity()) return;
+      var el = form.elements;
+      var files = Array.prototype.slice.call(el.files.files || []);
+      var total = files.reduce(function (n, f) { return n + f.size; }, 0);
+      if (files.length > 5) return say('Please attach at most five files.', true);
+      if (total > MAX) return say('The files come to more than 3 MB. Attach fewer, or share a link instead.', true);
+
+      button.disabled = true;
+      say('Sending…');
+      Promise.all(files.map(readFile))
+        .then(function (encoded) {
+          return fetch(form.dataset.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: el.title.value, authors: el.authors.value, email: el.email.value,
+              summary: el.summary.value, topic: el.topic.value, manuscriptLink: el.manuscriptLink.value,
+              github: el.github.value, notes: el.notes.value, agreeLicence: el.agreeLicence.checked,
+              website: el.website.value, files: encoded,
+            }),
+          });
+        })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (body) { return { ok: res.ok, body: body }; });
+        })
+        .then(function (r) {
+          if (!r.ok) {
+            button.disabled = false;
+            return say(r.body.userMessage || 'Something went wrong sending your request. Please try again.', true);
+          }
+          var done = document.createElement('div');
+          done.className = 'rq-done';
+          done.setAttribute('role', 'status');
+          var h = document.createElement('p');
+          h.className = 'rq-done-title';
+          h.textContent = 'Thank you, your request has arrived.';
+          var p = document.createElement('p');
+          p.textContent = 'We read every request ourselves and will reply by email. Once it is approved your book is set up automatically, and you will get its address.' +
+            (r.body.reference && r.body.reference !== 'received' ? ' Your reference: ' + r.body.reference + '.' : '');
+          done.appendChild(h);
+          done.appendChild(p);
+          if (r.body.userMessage) {
+            var w = document.createElement('p');
+            w.textContent = r.body.userMessage;
+            done.appendChild(w);
+          }
+          form.replaceWith(done);
+        })
+        .catch(function () {
+          button.disabled = false;
+          say('Your request could not be sent. Check your connection and try again.', true);
+        });
     });
   }
 })();

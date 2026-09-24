@@ -325,3 +325,35 @@ test('the graph layout is deterministic and inside the view', () => {
     assert.ok(n.x >= 0 && n.x <= VIEW.width && n.y >= 0 && n.y <= VIEW.height, `${n.label} at ${n.x},${n.y}`);
   }
 });
+
+/* --- publish your textbook here ----------------------------------------- */
+
+import { requestEndpointOf, SANDBOX_LABEL } from '../scripts/build.mjs';
+
+test('the request endpoint is the suggest-edit endpoint\'s sibling, or nothing', () => {
+  const reg = (e) => ({ platform: { suggest_edit_endpoint: e } });
+  assert.equal(requestEndpointOf(reg('https://fn.vercel.app/api/suggest-edit')), 'https://fn.vercel.app/api/request-book');
+  assert.equal(requestEndpointOf(reg('https://fn.vercel.app/other')), null);
+  assert.equal(requestEndpointOf(reg('http://fn.vercel.app/api/suggest-edit')), null);
+  assert.equal(requestEndpointOf({}), null);
+});
+
+test('the request form is rendered with its endpoint, and left out without one', () => {
+  const books = selectBooks(registry(liveBook())).listed;
+  const withForm = renderPage({ books, sha: 'a'.repeat(40), css, requestEndpoint: 'https://fn.vercel.app/api/request-book', contact: 'hello@example.org' });
+  assert.match(withForm, /id="publish"/);
+  assert.match(withForm, /data-endpoint="https:\/\/fn\.vercel\.app\/api\/request-book"/);
+  assert.match(withForm, /name="website"/); // honeypot
+  assert.match(withForm, /mailto:hello@example\.org/);
+  assert.match(withForm, /href="#publish"/);
+  const without = renderPage({ books, sha: 'a'.repeat(40), css });
+  assert.doesNotMatch(without, /id="publish"/);
+});
+
+test('a sandbox book is listed, badged as a test', () => {
+  const b = liveBook();
+  b.sandbox = true;
+  const html = render(registry(b));
+  assert.match(html, new RegExp(SANDBOX_LABEL));
+  assert.doesNotMatch(render(registry(liveBook())), new RegExp(SANDBOX_LABEL));
+});

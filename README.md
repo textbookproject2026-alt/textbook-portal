@@ -100,6 +100,14 @@ In page order, each left out when it has nothing to show:
 - **Browse by topic** — every key word A–Z, with the pages it appears on. The graph's
   nodes link here.
 - **Not for readers** — preview books, as before. They never feed the sections above.
+- **Publish your textbook here** — the request form (id `publish`, before *Not for readers*). It
+  posts to `/api/request-book` beside `platform.suggest_edit_endpoint`, which files the request in
+  the private `book-requests` repo; approval there provisions the book. Needs the inline script to
+  send; without it the section shows `PORTAL_CONTACT` (a Pages environment variable), if set.
+  Left out if the endpoint can't be derived.
+
+A book with registry `sandbox: true` (a throwaway test) is listed like any other, so a test goes
+through the real path, but carries the badge *Test book — will be removed*.
 
 ### Where the catalogs come from
 

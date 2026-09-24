@@ -145,6 +145,9 @@ export function selectBooks(registry) {
       // Optional extras: present when sound, silently absent when not. A bad
       // one must not cost the book its place in the list.
       maintainer: isText(book?.maintainer?.name) ? book.maintainer.name.trim() : null,
+      // A throwaway test book (registry `sandbox: true`): listed like any other,
+      // so a test proves the real path, but badged so no reader mistakes it.
+      sandbox: book.sandbox === true,
       templatePreview: isHttpsUrl(book?.editions?.template_preview) ? book.editions.template_preview : null,
       // Where the book's catalog is (scripts/catalog.mjs), and how its pages
       // are addressed. Neither can cost the book its place in the list.
@@ -190,8 +193,10 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** An id for a keyword's entry in the topic index, safe in HTML and CSS. */
 export const topicId = (key) => `topic-${key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x'}`;
 
+export const SANDBOX_LABEL = 'Test book — will be removed';
+
 function renderBook(book, stats) {
-  const label = STATUS_LABELS[book.status];
+  const label = book.sandbox ? SANDBOX_LABEL : STATUS_LABELS[book.status];
   const meta = [];
   if (book.maintainer) meta.push(`Maintained by ${escapeHtml(book.maintainer)}`);
   meta.push(`<a href="${escapeHtml(book.url)}">${escapeHtml(book.domain)}</a>`);
@@ -398,10 +403,68 @@ function renderTopics(nodes) {
   ].join('\n');
 }
 
+/* -------------------------------------------------------------------------
+   Publish your textbook here
+
+   The request form. It posts to the suggest-edit function's sibling
+   /api/request-book (derived from platform.suggest_edit_endpoint, like the
+   in-site editor's endpoint), which files the request privately. Nothing here
+   publishes anything: the platform owner approves each request by hand, and
+   approval runs book-requests' provision workflow.
+
+   It is part of index.html because the apex serves exactly two files (README,
+   "The apex redirect"). It needs the inline script to send; without it the
+   section says how to ask by email instead.
+   ------------------------------------------------------------------------- */
+
+/** https://<fn>/api/suggest-edit -> https://<fn>/api/request-book, or null. */
+export function requestEndpointOf(registry) {
+  const e = registry?.platform?.suggest_edit_endpoint;
+  if (!isHttpsUrl(e) || !/\/api\/suggest-edit\/?$/.test(e)) return null;
+  return e.replace(/\/suggest-edit\/?$/, '/request-book');
+}
+
+function renderRequest(endpoint, contact) {
+  if (!endpoint) return null;
+  const field = (id, label, input, hint) =>
+    [
+      `        <p class="rq-field">`,
+      `          <label for="rq-${id}">${label}</label>`,
+      hint ? `          <span class="rq-hint" id="rq-${id}-hint">${hint}</span>` : null,
+      `          ${input}`,
+      '        </p>',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  const text = (id, name, attrs = '') =>
+    `<input id="rq-${id}" name="${name}" type="text"${attrs}>`;
+  return [
+    '    <section class="section section--request" id="publish">',
+    '      <h2>Publish your textbook here</h2>',
+    '      <p class="section-lead">Write an open textbook and we host it: its own address, margin comments, reader suggestions, an in-page editor, and a place on this page and in the key-word graph. Nothing technical is asked of you. Tell us about the book; once we have said yes, it is set up for you and you get an email with its address.</p>',
+    `      <form class="request-form" data-endpoint="${escapeHtml(endpoint)}" hidden novalidate>`,
+    field('title', 'Title of the book', text('title', 'title', ' required maxlength="200" autocomplete="off"')),
+    field('authors', 'Author or authors', text('authors', 'authors', ' required maxlength="300" autocomplete="name"'), 'Separate several names with commas.'),
+    field('email', 'Your email address', '<input id="rq-email" name="email" type="email" required maxlength="254" autocomplete="email">', 'Only we see it. It is never published.'),
+    field('summary', 'What the book is about', '<textarea id="rq-summary" name="summary" rows="3" required minlength="20" maxlength="300"></textarea>', 'One or two sentences, up to 300 characters. This becomes the book&#39;s description on this page.'),
+    field('topic', 'Subject area <span class="rq-optional">(optional)</span>', text('topic', 'topic', ' maxlength="60"'), 'For example: sociology, ecology, music theory.'),
+    field('files', 'Manuscript <span class="rq-optional">(optional)</span>', '<input id="rq-files" name="files" type="file" multiple accept=".docx,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown">', 'Word (.docx) or Markdown (.md), up to five files and 3 MB in total. One file per chapter works best. Or leave it empty and write in the browser once the book exists.'),
+    field('link', 'Or a link to the manuscript <span class="rq-optional">(optional)</span>', '<input id="rq-link" name="manuscriptLink" type="url" maxlength="500" placeholder="https://">', 'For larger files: a shared folder or download link.'),
+    field('github', 'GitHub username <span class="rq-optional">(optional)</span>', text('github', 'github', ' maxlength="39" autocomplete="off" spellcheck="false"'), 'If you have one, you get direct access to your book&#39;s source. Not needed.'),
+    field('notes', 'Anything else <span class="rq-optional">(optional)</span>', '<textarea id="rq-notes" name="notes" rows="3" maxlength="3000"></textarea>'),
+    '        <p class="rq-field rq-agree"><label><input name="agreeLicence" type="checkbox" required><span>The book may be published under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>: anyone may share and adapt it, with credit, under the same licence.</span></label></p>',
+    '        <p class="rq-trap" aria-hidden="true"><label>Leave this empty <input name="website" type="text" tabindex="-1" autocomplete="off"></label></p>',
+    '        <p class="rq-actions"><button type="submit">Send request</button><span class="rq-status" role="status" aria-live="polite"></span></p>',
+    '      </form>',
+    `      <p class="rq-nojs">${contact ? `The request form needs JavaScript. Or write to <a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>.` : 'The request form needs JavaScript.'}</p>`,
+    '    </section>',
+  ].join('\n');
+}
+
 /** A keyword as readers see it: a concept by its title, a tag as Obsidian writes it. */
 const shownLabel = (n) => (n.kind === 'tag' ? `#${n.label}` : n.label);
 
-export function renderPage({ books, sha, css, js = '', catalogs = new Map() }) {
+export function renderPage({ books, sha, css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null }) {
   const live = books.filter((b) => b.status === 'live');
   const preview = books.filter((b) => b.status === 'preview');
   const kw = keywords(books, catalogs);
@@ -412,11 +475,12 @@ export function renderPage({ books, sha, css, js = '', catalogs = new Map() }) {
     ['recent', renderRecent(recentChanges(books, catalogs))],
     ['authors', renderAuthors(authors(books, catalogs))],
     ['topics', renderTopics(kw.nodes)],
+    ['publish', renderRequest(requestEndpoint, contact)],
     [null, renderSection({ className: 'section--preview', heading: 'Not for readers', books: preview, catalogs })],
   ].filter(([, html]) => html);
   const sections = parts.map(([, html]) => html);
 
-  const NAV = { books: live.length === 1 ? 'The book' : 'Books', keywords: 'Key words', recent: 'Recent', authors: 'Authors', topics: 'Topics' };
+  const NAV = { books: live.length === 1 ? 'The book' : 'Books', keywords: 'Key words', recent: 'Recent', authors: 'Authors', topics: 'Topics', publish: 'Publish a book' };
   const navItems = parts.filter(([id]) => id && NAV[id]).map(([id]) => `<a href="#${id}">${NAV[id]}</a>`);
   const nav = navItems.length > 1 ? `    <nav class="jump" aria-label="On this page">${navItems.join('')}</nav>\n` : '';
 
@@ -514,7 +578,9 @@ async function main() {
 
   const css = readFileSync(CSS_FILE, 'utf8');
   const js = readFileSync(JS_FILE, 'utf8');
-  const html = renderPage({ books: listed, sha, css, js, catalogs });
+  // PORTAL_CONTACT (a Pages environment variable) is the no-JavaScript fallback's address.
+  const contact = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(process.env.PORTAL_CONTACT ?? '') ? process.env.PORTAL_CONTACT : null;
+  const html = renderPage({ books: listed, sha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact });
 
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
