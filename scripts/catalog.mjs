@@ -266,7 +266,9 @@ export function authors(books, catalogs) {
 export function bookStats(book, catalogs) {
   const c = catalogs.get(book.slug);
   if (!c) return null;
-  const concepts = c.pages.filter((p) => p.concept).length;
+  // The stats workflow's community/ pages aren't part of the book's text.
+  const text = c.pages.filter((p) => !p.path.startsWith('/community/'));
+  const concepts = text.filter((p) => p.concept).length;
   const updated = c.recent.map((r) => r.date).sort().at(-1) ?? null;
-  return { pages: c.pages.length - concepts, concepts, updated };
+  return { pages: text.length - concepts, concepts, updated };
 }
