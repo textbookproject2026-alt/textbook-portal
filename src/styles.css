@@ -37,7 +37,8 @@
 
   --portal-size-body: 1.125rem; /* 18px, as the books */
   --portal-lh-body:   1.65;
-  --portal-measure:   720px;    /* the books' reading column */
+  --portal-page:      1120px;   /* two columns at ≥ 960px; see .band */
+  --portal-graph:     720px;    /* the key-word graph's width: its labels stay 12px-ish */
   --portal-rhythm:    1.5rem;
   --portal-gutter:    2rem;
 
@@ -88,7 +89,7 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  padding: calc(var(--portal-rhythm) * 2.5) var(--portal-gutter) calc(var(--portal-rhythm) * 3);
+  padding: calc(var(--portal-rhythm) * 2) var(--portal-gutter) calc(var(--portal-rhythm) * 3);
   background-color: var(--portal-bg);
   color: var(--portal-ink);
   font-family: var(--portal-font);
@@ -96,7 +97,7 @@ body {
   line-height: var(--portal-lh-body);
 }
 
-main { max-width: var(--portal-measure); margin: 0 auto; }
+main { max-width: var(--portal-page); margin: 0 auto; }
 
 a {
   color: var(--portal-accent);
@@ -113,7 +114,7 @@ a:hover { color: var(--portal-accent-hover); }
 
 /* --- masthead ----------------------------------------------------------- */
 
-.masthead { margin-bottom: calc(var(--portal-rhythm) * 2); }
+.masthead { margin-bottom: calc(var(--portal-rhythm) * 1.5); }
 
 .masthead h1 {
   margin: 0 0 0.4rem;
@@ -122,11 +123,75 @@ a:hover { color: var(--portal-accent-hover); }
   letter-spacing: -0.01em;
 }
 
-.masthead p {
+.tagline {
   margin: 0;
-  max-width: 34em;
   color: var(--portal-muted);
 }
+
+/* Section nav: wraps on a narrow screen, no menu. */
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+.jump a { color: var(--portal-muted); text-decoration: none; }
+.jump a:hover { color: var(--portal-accent-hover); text-decoration: underline; }
+
+/* --- first band: about and the books ------------------------------------ */
+
+/* Source order is the phone order: about, books, the fold-outs. From 960px the
+   about column takes the fold-outs under it and the books sit to its right. */
+.band > .section--about { margin-top: 0; }
+.about-folds { margin-top: var(--portal-rhythm); }
+
+@media (min-width: 960px) {
+  .band {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "about books" "folds books";
+    column-gap: calc(var(--portal-rhythm) * 2);
+  }
+  .band > .section--about { grid-area: about; }
+  .band > .section--live { grid-area: books; margin-top: 0; }
+  .band > .about-folds { grid-area: folds; }
+}
+
+/* The intro is the page's main prose, not a lead-in: body text. */
+.section--about p, .about-more p {
+  margin: 0 0 0.75rem;
+  font-size: var(--portal-size-body);
+  color: var(--portal-ink);
+}
+
+.about-more { border-top: 1px solid var(--portal-border); }
+.about-more:last-child { border-bottom: 1px solid var(--portal-border); }
+.about-more summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0;
+  font-weight: 600;
+  color: var(--portal-accent);
+  cursor: pointer;
+  list-style: none;
+}
+.about-more summary::-webkit-details-marker { display: none; }
+.about-more summary::before {
+  content: "";
+  flex: none;
+  width: 0.45em;
+  height: 0.45em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms;
+}
+.about-more[open] summary::before { transform: rotate(45deg); }
+.about-more summary:hover { color: var(--portal-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+.about-more[open] { padding-bottom: 0.25rem; }
 
 /* --- sections ----------------------------------------------------------- */
 
@@ -145,24 +210,33 @@ a:hover { color: var(--portal-accent-hover); }
 
 /* --- book list ---------------------------------------------------------- */
 
-.books { list-style: none; margin: 0; padding: 0; }
+.books { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
 
-.book + .book {
-  margin-top: var(--portal-rhythm);
-  padding-top: var(--portal-rhythm);
-  border-top: 1px solid var(--portal-border);
+.book {
+  min-width: 0;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  background-color: var(--portal-bg);
 }
+.book:hover { border-color: var(--portal-accent-flat); }
 
 .book h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1.375rem; /* --tb-size-h3 */
+  margin: 0 0 0.2rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
-.book p { margin: 0 0 0.5rem; }
+.book p { margin: 0 0 0.3rem; }
 
-.book .summary { max-width: 38em; }
+/* One line; the whole description is in the title attribute. */
+.book .summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.95rem;
+}
 
 .meta {
   margin: 0;
@@ -189,29 +263,13 @@ a:hover { color: var(--portal-accent-hover); }
   color: var(--portal-muted);
 }
 
-/* --- jump links --------------------------------------------------------- */
-
-.jump {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.25rem;
-  margin: calc(var(--portal-rhythm) * -1) 0 calc(var(--portal-rhythm) * 1.5);
-  font-size: 0.9rem;
-}
-.jump a { color: var(--portal-muted); text-decoration: none; }
-.jump a:hover { color: var(--portal-accent-hover); text-decoration: underline; }
+/* --- section leads ------------------------------------------------------ */
 
 .section-lead {
   margin: calc(var(--portal-rhythm) * -0.5) 0 var(--portal-rhythm);
   max-width: 38em;
   font-size: 0.95rem;
   color: var(--portal-muted);
-}
-
-/* The landing intro is the page's main prose, not a lead-in: body text. */
-.section--intro .section-lead {
-  font-size: var(--portal-size-body);
-  color: var(--portal-ink);
 }
 
 .stats {
@@ -358,6 +416,12 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   list-style: none;
   font-size: 0.8rem;
 }
+.kw-graph, .kw-legend, .kw-topics {
+  max-width: var(--portal-graph);
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .kw-topics button {
   display: inline-flex;
   align-items: center;
@@ -375,7 +439,16 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
 .kw-topics button[aria-pressed="true"] { border-color: var(--portal-accent-flat); background: var(--portal-wash); }
 .kw-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 
-/* --- recent changes ------------------------------------------------------ */
+/* --- recent changes and authors ----------------------------------------- */
+
+@media (min-width: 960px) {
+  .pair {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: calc(var(--portal-rhythm) * 2);
+    align-items: start;
+  }
+}
 
 .recent { list-style: none; margin: 0; padding: 0; }
 .recent li {
@@ -533,7 +606,7 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
 .colophon p { margin: 0 0 0.35rem; }
 
 @media (max-width: 34rem) {
-  body { padding-left: 1.25rem; padding-right: 1.25rem; }
+  body { padding-left: 1rem; padding-right: 1rem; }
   .masthead h1 { font-size: 1.5rem; }
   .recent li { grid-template-columns: auto 1fr; }
   .recent .recent-pages, .recent .recent-book { grid-column: 1 / -1; }
