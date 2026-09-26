@@ -357,3 +357,27 @@ test('a sandbox book is listed, badged as a test', () => {
   assert.match(html, new RegExp(SANDBOX_LABEL));
   assert.doesNotMatch(render(registry(liveBook())), new RegExp(SANDBOX_LABEL));
 });
+
+/* --- analytics ----------------------------------------------------------- */
+
+import { analyticsOf } from '../scripts/build.mjs';
+
+test('the platform\'s Plausible site, counted only on the portal\'s own domain (D19)', () => {
+  const src = 'https://plausible.io/js/pa-abc.js';
+  const reg = (plausible, domain = 'portal.example') => ({
+    platform: { portal: { domain }, analytics: { plausible } },
+  });
+  const site = { script_src: src, site: 'portal.example', dashboard_public: true };
+  assert.deepEqual(analyticsOf(reg(site)), { src, domain: 'portal.example' });
+  assert.equal(analyticsOf(reg(null)), null);
+  assert.equal(analyticsOf({ platform: {} }), null);
+  assert.equal(analyticsOf(reg({ ...site, script_src: 'https://evil.example/js/pa-abc.js' })), null);
+  assert.equal(analyticsOf(reg(site, '')), null);
+
+  const books = selectBooks(registry(liveBook())).listed;
+  const html = renderPage({ books, sha: 'a'.repeat(40), css, analytics: analyticsOf(reg(site)) });
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.match(head, /location\.hostname !== "portal\.example"\) return/);
+  assert.ok(head.includes(JSON.stringify(src)));
+  assert.doesNotMatch(renderPage({ books, sha: 'a'.repeat(40), css }), /plausible/);
+});
