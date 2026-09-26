@@ -7,7 +7,7 @@
  * HTML. With it: hovering or focusing a keyword lights up its neighbours, a
  * click opens the keyword's pages beside the graph, the graph filters by kind
  * (tags or concepts), topic, author and book, and the topic index filters as
- * you type.
+ * you type. Printing opens the landing page's fold-outs, then closes them again.
  *
  * Reads only the page's own DOM; the one fetch is the request form posting to
  * its endpoint. Any error leaves the static page exactly as it was.
@@ -27,6 +27,11 @@
     if (request) enhanceRequest(request);
   } catch (e) {
     /* the no-JavaScript note stands */
+  }
+  try {
+    printOpen(document.querySelectorAll('main details'));
+  } catch (e) {
+    /* the fold-outs print closed */
   }
 
   function enhanceGraph(root) {
@@ -377,6 +382,22 @@
           input.disabled = false;
           say((err && err.userMessage) || 'Your request could not be sent. Check your connection and try again.', true);
         });
+    });
+  }
+
+  /* Open every fold-out for printing, and put each back as it was after. */
+  function printOpen(list) {
+    var folds = Array.prototype.slice.call(list);
+    if (folds.length === 0) return;
+    var was = null;
+    window.addEventListener('beforeprint', function () {
+      was = folds.map(function (d) { return d.open; });
+      folds.forEach(function (d) { d.open = true; });
+    });
+    window.addEventListener('afterprint', function () {
+      if (!was) return;
+      folds.forEach(function (d, i) { d.open = was[i]; });
+      was = null;
     });
   }
 })();

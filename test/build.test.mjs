@@ -381,3 +381,17 @@ test('the platform\'s Plausible site, counted only on the portal\'s own domain (
   assert.ok(head.includes(JSON.stringify(src)));
   assert.doesNotMatch(renderPage({ books, sha: 'a'.repeat(40), css }), /plausible/);
 });
+
+test('landing order: nav in the header; about, books, then the closed fold-outs', () => {
+  const { listed, catalogs } = withCatalog();
+  const body = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs }).split('<main>')[1];
+  const at = (s) => body.indexOf(s);
+  assert.ok(at('class="jump"') > at('<h1>') && at('class="jump"') < at('</header>'), 'the section nav is in the header');
+  assert.ok(at('class="section section--about"') < at('id="books"'));
+  assert.ok(at('id="books"') < at('class="about-folds"'));
+  assert.ok(at('class="about-folds"') < at('id="keywords"'));
+  assert.deepEqual([...body.matchAll(/<details class="about-more">\s*<summary>([^<]+)</g)].map((m) => m[1]),
+    ['Read more', 'How to contribute', 'Why Confused for Now?']);
+  assert.ok(at('id="recent"') < at('id="authors"') && at('id="authors"') < at('id="topics"'));
+  assert.equal((body.match(/<h1>/g) ?? []).length, 1);
+});

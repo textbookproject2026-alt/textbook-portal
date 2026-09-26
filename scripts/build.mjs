@@ -208,7 +208,7 @@ function renderBook(book, stats) {
     '      <li class="book">',
     label ? `        <p class="badge">${escapeHtml(label)}</p>` : null,
     `        <h3><a href="${escapeHtml(book.url)}">${escapeHtml(book.title)}</a></h3>`,
-    `        <p class="summary">${escapeHtml(book.summary)}</p>`,
+    `        <p class="summary" title="${escapeHtml(book.summary)}">${escapeHtml(book.summary)}</p>`,
     stats
       ? `        <p class="stats">${[
           plural(stats.pages, 'page'),
@@ -513,11 +513,21 @@ export function renderPage({ books, sha, css, js = '', catalogs = new Map(), req
     ['topics', renderTopics(kw.nodes)],
     ['publish', renderRequest(requestEndpoint, contact)],
   ].filter(([, html]) => html);
-  const sections = parts.map(([, html]) => html);
+  const section = Object.fromEntries(parts);
+
+  // Below the first band: key words, then recent changes and authors side by
+  // side on a wide screen, then topics and the request form.
+  const pair = [section.recent, section.authors].filter(Boolean);
+  const below = [
+    section.keywords,
+    pair.length === 2 ? `    <div class="pair">\n${pair.join('\n\n')}\n    </div>` : pair[0],
+    section.topics,
+    section.publish,
+  ].filter(Boolean);
 
   const NAV = { books: live.length === 1 ? 'The book' : 'Books', keywords: 'Key words', recent: 'Recent', authors: 'Authors', topics: 'Topics', publish: 'Publish a book' };
   const navItems = parts.filter(([id]) => id && NAV[id]).map(([id]) => `<a href="#${id}">${NAV[id]}</a>`);
-  const nav = navItems.length > 1 ? `    <nav class="jump" aria-label="On this page">${navItems.join('')}</nav>\n` : '';
+  const nav = navItems.length > 1 ? `      <nav class="jump" aria-label="On this page">${navItems.join('')}</nav>\n` : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -537,28 +547,36 @@ ${renderAnalytics(analytics)}</head>
   <main>
     <header class="masthead">
       <h1>Confused for Now</h1>
-    </header>
+      <p class="tagline">Confused for Now is a platform committed to open science and open education.</p>
+${nav}    </header>
 
-    <section class="section section--intro">
-      <p class="section-lead">Confused for Now is a platform committed to open science and open education. It is built on the belief that knowledge develops through continual discovery, and that this development is marked by starts, stops and reversals. We want to normalise the view that these are not flaws but an integral part of how science works. Scientific communication should therefore take place somewhere that makes room for the detours, mistakes and innovations through which science steadily improves its explanatory power. This site is our attempt to build such a place.</p>
-      <p class="section-lead">Underlying the platform is a commitment to making the ontological assumptions inherent in all scientific work explicit and transparent, because meaningful debate depends on knowing what each position takes for granted. To this end, we embed debate directly in the writing itself. One of our central goals is to reframe scientific work from something finished on the publication date to something that keeps evolving as new information, and better ways of communicating it, emerge.</p>
-      <p class="section-lead">In practice, every text on the platform has a clear version history documenting how it has developed, so readers can follow the field as it moves. Where disagreement cannot be resolved and further work is needed, a version can be branched into an alternative path. The platform also serves as a venue for open-access publication and peer review. For students, it offers a way to stay in touch with current thinking in their field long after their course has ended.</p>
+    <div class="band">
+    <section class="section section--about" aria-labelledby="about">
+      <h2 id="about">About</h2>
+      <p>It is built on the belief that knowledge develops through continual discovery, and that this development is marked by starts, stops and reversals. We want to normalise the view that these are not flaws but an integral part of how science works. Scientific communication should therefore take place somewhere that makes room for the detours, mistakes and innovations through which science steadily improves its explanatory power. This site is our attempt to build such a place.</p>
     </section>
+${section.books ?? ''}
+    <section class="about-folds" aria-labelledby="about">
+      <details class="about-more">
+        <summary>Read more</summary>
+        <p>Underlying the platform is a commitment to making the ontological assumptions inherent in all scientific work explicit and transparent, because meaningful debate depends on knowing what each position takes for granted. To this end, we embed debate directly in the writing itself. One of our central goals is to reframe scientific work from something finished on the publication date to something that keeps evolving as new information, and better ways of communicating it, emerge.</p>
+        <p>In practice, every text on the platform has a clear version history documenting how it has developed, so readers can follow the field as it moves. Where disagreement cannot be resolved and further work is needed, a version can be branched into an alternative path. The platform also serves as a venue for open-access publication and peer review. For students, it offers a way to stay in touch with current thinking in their field long after their course has ended.</p>
+      </details>
+      <details class="about-more">
+        <summary>How to contribute</summary>
+        <p>Anyone is welcome to take part. As you read, you can comment on passages and propose edits directly in the text. The authors moderate contributions according to principles of transparent dialogue. Each contribution is discussed, then either incorporated as an improvement or recorded as a point of tension that may open a line of future research. Nothing is lost along the way, because every change remains visible in the version history.</p>
+        <p>We are glad you are here, and we hope you will join the conversation.</p>
+      </details>
+      <details class="about-more">
+        <summary>Why Confused for Now?</summary>
+        <p>The name has a double meaning. First, worthwhile knowledge is challenging to acquire, and some confusion is part of healthy learning. It is quite alright, and often helpful, to be confused for now.</p>
+        <p>Second, all knowledge is provisional. Every account of the world is incomplete, not because it is false, but because there is always more to grasp. In that sense, the whole scientific community is confused for now. The big questions of our time carry real weight. The more we can work together on a common project that integrates partial knowledge, the better our chance of reducing, or even eliminating, confusion about why we disagree, even where disagreement remains.</p>
+        <p>We hope the platform serves your community well. If you have ideas on how to make open education and open science work better for you, we would love to hear from you at <a href="mailto:sommer@euc.eur.nl">sommer@euc.eur.nl</a>.</p>
+      </details>
+    </section>
+    </div>
 
-    <section class="section section--intro">
-      <h2>How to contribute</h2>
-      <p class="section-lead">Anyone is welcome to take part. As you read, you can comment on passages and propose edits directly in the text. The authors moderate contributions according to principles of transparent dialogue. Each contribution is discussed, then either incorporated as an improvement or recorded as a point of tension that may open a line of future research. Nothing is lost along the way, because every change remains visible in the version history.</p>
-      <p class="section-lead">We are glad you are here, and we hope you will join the conversation.</p>
-    </section>
-
-    <section class="section section--intro">
-      <h2>Why Confused for Now?</h2>
-      <p class="section-lead">The name has a double meaning. First, worthwhile knowledge is challenging to acquire, and some confusion is part of healthy learning. It is quite alright, and often helpful, to be confused for now.</p>
-      <p class="section-lead">Second, all knowledge is provisional. Every account of the world is incomplete, not because it is false, but because there is always more to grasp. In that sense, the whole scientific community is confused for now. The big questions of our time carry real weight. The more we can work together on a common project that integrates partial knowledge, the better our chance of reducing, or even eliminating, confusion about why we disagree, even where disagreement remains.</p>
-      <p class="section-lead">We hope the platform serves your community well. If you have ideas on how to make open education and open science work better for you, we would love to hear from you at <a href="mailto:sommer@euc.eur.nl">sommer@euc.eur.nl</a>.</p>
-    </section>
-${nav}
-${sections.join('\n\n')}
+${below.join('\n\n')}
 
     <footer class="colophon">
       <p>Each book is licensed by its maintainer; the licence is stated on the book itself. Every book&#39;s source text is in a public repository.</p>
