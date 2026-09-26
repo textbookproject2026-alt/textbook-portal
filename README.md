@@ -138,11 +138,23 @@ all at once, and the topic index filters as you type. The legend's topics are a 
 the topic filter. A filter is only offered when it has a choice to make: the author filter
 needs two authors, the book filter two live books. It reads only the page's own DOM.
 
-## `/version.txt`
+## `/version.txt` and `portal-version`
 
-The portal's equivalent of the function's `X-Registry-Version` header: the registry
-SHA this build was made from. `textbook-registry/.github/workflows/portal.yml` polls
-it after firing the deploy hook, and goes red on the merge commit if it doesn't
+**`/version.txt` is the registry's commit, not this repo's.** It is the portal's
+equivalent of the function's `X-Registry-Version` header: the registry
+SHA this build was made from. A merge here leaves it unchanged.
+
+This repo's own commit is in the page, as `<meta name="portal-version" content="<sha>">`,
+from `CF_PAGES_COMMIT_SHA` (`local` outside Pages). It's a tag in `/`, not a new file,
+so the apex redirect rule needs no new exemption. `.github/workflows/deployed.yml`
+runs on every push to `main`: it waits up to ten minutes for `https://<platform.portal.domain>/`
+to name that commit (or a later one) and goes red on the merge commit if it doesn't.
+Pages builds `main` on push by itself (it is the production branch). If the page is
+still behind after four minutes and the optional secret `PORTAL_DEPLOY_HOOK` is set
+here, the job fires the hook once.
+
+The registry side is unchanged: `textbook-registry/.github/workflows/portal.yml` polls
+`/version.txt` after firing the deploy hook, and goes red on the merge commit if it doesn't
 catch up within ten minutes.
 
 `static/_headers` sets `Cache-Control: no-store` on it, or an edge-cached copy would
