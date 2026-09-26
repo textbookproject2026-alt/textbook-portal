@@ -461,10 +461,47 @@ function renderRequest(endpoint, contact) {
   ].join('\n');
 }
 
+/* -------------------------------------------------------------------------
+   Analytics
+
+   The platform's one Plausible site (BOOK-ONE-TO-QUARTZ D19, §8 step 17a),
+   named once in platform.analytics.plausible and shared with every live book.
+   The loader is edition-integrations' analyticsLoader (quartz-edition-extras
+   src/runtime.ts) with the portal's domain: the page counts only when served
+   from platform.portal.domain, never from textbook-portal.pages.dev or a
+   branch preview. No site, or no portal domain, means no script at all.
+   ------------------------------------------------------------------------- */
+
+/** { src, domain } for the portal's Plausible script, or null. */
+export function analyticsOf(registry) {
+  const src = registry?.platform?.analytics?.plausible?.script_src;
+  const domain = registry?.platform?.portal?.domain;
+  if (!isText(src) || !/^https:\/\/plausible\.io\/js\/[A-Za-z0-9._-]+\.js$/.test(src)) return null;
+  if (!isText(domain)) return null;
+  return { src, domain };
+}
+
+function renderAnalytics(analytics) {
+  if (!analytics) return '';
+  return `<script>
+;(function () {
+  if (location.hostname !== ${JSON.stringify(analytics.domain)}) return
+  window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments) }
+  window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
+  window.plausible.init()
+  var s = document.createElement("script")
+  s.async = true
+  s.src = ${JSON.stringify(analytics.src)}
+  document.head.appendChild(s)
+})()
+</script>
+`;
+}
+
 /** A keyword as readers see it: a concept by its title, a tag as Obsidian writes it. */
 const shownLabel = (n) => (n.kind === 'tag' ? `#${n.label}` : n.label);
 
-export function renderPage({ books, sha, css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null }) {
+export function renderPage({ books, sha, css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null }) {
   const live = books.filter((b) => b.status === 'live');
   const kw = keywords(books, catalogs);
 
@@ -495,7 +532,7 @@ export function renderPage({ books, sha, css, js = '', catalogs = new Map(), req
 <style>
 ${css.trim()}
 </style>
-</head>
+${renderAnalytics(analytics)}</head>
 <body>
   <main>
     <header class="masthead">
@@ -596,7 +633,7 @@ async function main() {
   const js = readFileSync(JS_FILE, 'utf8');
   // PORTAL_CONTACT (a Pages environment variable) is the no-JavaScript fallback's address.
   const contact = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(process.env.PORTAL_CONTACT ?? '') ? process.env.PORTAL_CONTACT : null;
-  const html = renderPage({ books: listed, sha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact });
+  const html = renderPage({ books: listed, sha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact, analytics: analyticsOf(registry) });
 
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
