@@ -109,17 +109,17 @@ test('the failure names the books it skipped, so the cause is in the build log',
 
 /* --- rendering ---------------------------------------------------------- */
 
-test('a preview book carries its label and a live book does not', () => {
-  const html = render(registry(liveBook(), previewBook()));
-  assert.match(html, /Preview — a demonstration, not for readers/);
-  assert.equal(html.match(/class="badge"/g).length, 1);
-  assert.match(html, /Not for readers<\/h2>/);
+test('a preview book appears nowhere on the page, and a live book carries no badge', () => {
+  // The page body only: the inlined stylesheet's header names platform-test-book as a source.
+  const body = render(registry(liveBook(), previewBook())).split('<main>')[1];
+  assert.doesNotMatch(body, /platform-test-book|Platform test book/);
+  assert.doesNotMatch(body, /Not for readers|section--preview/);
+  assert.doesNotMatch(body, /class="badge"/);
 });
 
-test('every listed book links to its own https address', () => {
+test('a live book links to its own https address', () => {
   const html = render(registry(liveBook(), previewBook()));
   assert.match(html, /href="https:\/\/social-research-methods\.confused4now\.org"/);
-  assert.match(html, /href="https:\/\/platform-test-book\.pages\.dev"/);
 });
 
 test('the page carries the registry SHA it was built from', () => {
@@ -281,7 +281,7 @@ test('authors: the catalog\'s, else the maintainer; preview books never feed rea
   const named = withCatalog({ authors: ['Brandon Sommer', 'A. Co-Author'] });
   assert.deepEqual(authors(named.listed, named.catalogs).map((a) => a.name), ['A. Co-Author', 'Brandon Sommer']);
   const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
-  assert.doesNotMatch(html.split('<main>')[1].split('Not for readers')[0], /platform-test-book/);
+  assert.doesNotMatch(html.split('<main>')[1], /platform-test-book/);
 });
 
 test('a book still on Obsidian Publish gets Publish addresses for its pages', () => {

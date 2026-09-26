@@ -175,14 +175,6 @@ a:hover { color: var(--portal-accent-hover); }
 
 .meta .sep { padding: 0 0.5em; color: var(--portal-faint); }
 
-/* --- the preview section, deliberately quieter --------------------------- */
-
-.section--preview .book h3 { font-size: 1.125rem; }
-
-.section--preview .book h3 a { color: var(--portal-ink); }
-
-.section--preview .book .summary { color: var(--portal-muted); }
-
 .badge {
   display: inline-block;
   margin-bottom: 0.45rem;

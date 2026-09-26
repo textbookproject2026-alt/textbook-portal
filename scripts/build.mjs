@@ -466,7 +466,6 @@ const shownLabel = (n) => (n.kind === 'tag' ? `#${n.label}` : n.label);
 
 export function renderPage({ books, sha, css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null }) {
   const live = books.filter((b) => b.status === 'live');
-  const preview = books.filter((b) => b.status === 'preview');
   const kw = keywords(books, catalogs);
 
   const parts = [
@@ -476,7 +475,6 @@ export function renderPage({ books, sha, css, js = '', catalogs = new Map(), req
     ['authors', renderAuthors(authors(books, catalogs))],
     ['topics', renderTopics(kw.nodes)],
     ['publish', renderRequest(requestEndpoint, contact)],
-    [null, renderSection({ className: 'section--preview', heading: 'Not for readers', books: preview, catalogs })],
   ].filter(([, html]) => html);
   const sections = parts.map(([, html]) => html);
 
