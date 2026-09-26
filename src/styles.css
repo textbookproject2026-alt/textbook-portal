@@ -216,6 +216,12 @@ a:hover { color: var(--portal-accent-hover); }
   color: var(--portal-muted);
 }
 
+/* The landing intro is the page's main prose, not a lead-in: body text. */
+.section--intro .section-lead {
+  font-size: var(--portal-size-body);
+  color: var(--portal-ink);
+}
+
 .stats {
   margin: 0 0 0.35rem;
   font-size: 0.9rem;
