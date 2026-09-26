@@ -9,8 +9,8 @@
  * (tags or concepts), topic, author and book, and the topic index filters as
  * you type.
  *
- * Reads only the page's own DOM; fetches nothing. Any error leaves the static
- * page exactly as it was.
+ * Reads only the page's own DOM; the one fetch is the request form posting to
+ * its endpoint. Any error leaves the static page exactly as it was.
  */
 (function () {
   'use strict';
@@ -206,59 +206,152 @@
     });
   }
 
-  /* The request form: files are read in the browser and sent as base64 inside
-     one JSON body (the endpoint's limit is 3 MB of files in total). */
+  /* The request form. Chosen files are kept in a list of our own, not the file
+     input's, so each can be removed (a file input can only be replaced whole).
+     Files go up in 2.5 MB parts, one request each, because the endpoint's host
+     refuses bodies over 4.5 MB; the request itself then names the parts. */
   function enhanceRequest(form) {
-    var MAX = 3 * 1024 * 1024;
+    var MAX = 20 * 1024 * 1024;
+    var MAX_TEXT = '20 MB';
+    var MAX_FILES = 5;
+    var PART = 2.5 * 1024 * 1024;
     var nojs = document.querySelector('.rq-nojs');
     if (nojs) nojs.hidden = true;
     form.hidden = false;
     var button = form.querySelector('button[type="submit"]');
     var status = form.querySelector('.rq-status');
+    var input = form.querySelector('.rq-file-input');
+    var list = form.querySelector('.rq-file-list');
+    var picked = [];
     var say = function (text, bad) {
       status.textContent = text;
       status.className = 'rq-status' + (bad ? ' rq-status--bad' : '');
     };
+    var sizeText = function (n) {
+      return n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1024 / 1024).toFixed(1) + ' MB';
+    };
+    var totalOf = function () { return picked.reduce(function (n, f) { return n + f.size; }, 0); };
 
-    function readFile(file) {
+    /* The first thing wrong with the chosen files, or null. */
+    function problem() {
+      if (picked.length > MAX_FILES) return 'Please attach at most five files.';
+      for (var i = 0; i < picked.length; i++) {
+        if (!/\.(docx|md|markdown)$/i.test(picked[i].name)) return picked[i].name + ' is not a Word (.docx) or Markdown (.md) file.';
+      }
+      if (totalOf() > MAX) return 'The files come to ' + sizeText(totalOf()) + ', more than ' + MAX_TEXT + '. Remove some, or share a link instead.';
+      return null;
+    }
+
+    function render() {
+      list.textContent = '';
+      picked.forEach(function (file, i) {
+        var li = document.createElement('li');
+        var name = document.createElement('span');
+        name.className = 'rq-file-name';
+        name.textContent = file.name;
+        var size = document.createElement('span');
+        size.className = 'rq-file-size';
+        size.textContent = sizeText(file.size);
+        var remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'rq-file-remove';
+        remove.textContent = 'Remove';
+        remove.setAttribute('aria-label', 'Remove ' + file.name);
+        remove.addEventListener('click', function () {
+          picked.splice(i, 1);
+          render();
+          (list.querySelector('.rq-file-remove') || input).focus();
+        });
+        li.appendChild(name);
+        li.appendChild(size);
+        li.appendChild(remove);
+        list.appendChild(li);
+      });
+      list.hidden = !picked.length;
+      var p = problem();
+      say(p || '', !!p);
+    }
+
+    input.addEventListener('change', function () {
+      Array.prototype.forEach.call(input.files || [], function (f) {
+        var dup = picked.some(function (g) { return g.name === f.name && g.size === f.size && g.lastModified === f.lastModified; });
+        if (!dup) picked.push(f);
+      });
+      input.value = ''; // so the same file can be chosen again after removing it
+      render();
+    });
+
+    function readBase64(blob) {
       return new Promise(function (resolve, reject) {
         var r = new FileReader();
-        r.onload = function () { resolve({ name: file.name, data: String(r.result).split(',')[1] || '' }); };
+        r.onload = function () { resolve(String(r.result).split(',')[1] || ''); };
         r.onerror = function () { reject(new Error('read')); };
-        r.readAsDataURL(file);
+        r.readAsDataURL(blob);
       });
+    }
+
+    function post(body) {
+      return fetch(form.dataset.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (b) { return { ok: res.ok, body: b }; });
+      });
+    }
+
+    /* Uploads every part in turn; resolves to [{ name, parts: [sha, ...] }]. */
+    function uploadAll() {
+      var total = totalOf();
+      var sent = 0;
+      var out = [];
+      return picked.reduce(function (chain, file) {
+        var entry = { name: file.name, parts: [] };
+        out.push(entry);
+        for (var at = 0; at < file.size; at += PART) {
+          (function (slice) {
+            chain = chain.then(function () {
+              return readBase64(slice).then(function (data) { return post({ part: data }); }).then(function (r) {
+                if (!r.ok) {
+                  var err = new Error('part');
+                  err.userMessage = r.body.userMessage;
+                  throw err;
+                }
+                entry.parts.push(r.body.sha);
+                sent += slice.size;
+                say('Uploading files… ' + Math.round((sent / total) * 100) + '%');
+              });
+            });
+          })(file.slice(at, at + PART));
+        }
+        return chain;
+      }, Promise.resolve()).then(function () { return out; });
     }
 
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       if (!form.reportValidity()) return;
+      var p = problem();
+      if (p) return say(p, true);
       var el = form.elements;
-      var files = Array.prototype.slice.call(el.files.files || []);
-      var total = files.reduce(function (n, f) { return n + f.size; }, 0);
-      if (files.length > 5) return say('Please attach at most five files.', true);
-      if (total > MAX) return say('The files come to more than 3 MB. Attach fewer, or share a link instead.', true);
 
       button.disabled = true;
-      say('Sending…');
-      Promise.all(files.map(readFile))
-        .then(function (encoded) {
-          return fetch(form.dataset.endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: el.title.value, authors: el.authors.value, email: el.email.value,
-              summary: el.summary.value, topic: el.topic.value, manuscriptLink: el.manuscriptLink.value,
-              github: el.github.value, notes: el.notes.value, agreeLicence: el.agreeLicence.checked,
-              website: el.website.value, files: encoded,
-            }),
+      input.disabled = true;
+      say(picked.length ? 'Uploading files…' : 'Sending…');
+      uploadAll()
+        .then(function (files) {
+          say('Sending…');
+          return post({
+            title: el.title.value, authors: el.authors.value, email: el.email.value,
+            summary: el.summary.value, topic: el.topic.value, manuscriptLink: el.manuscriptLink.value,
+            github: el.github.value, notes: el.notes.value, agreeLicence: el.agreeLicence.checked,
+            website: el.website.value, files: files,
           });
-        })
-        .then(function (res) {
-          return res.json().catch(function () { return {}; }).then(function (body) { return { ok: res.ok, body: body }; });
         })
         .then(function (r) {
           if (!r.ok) {
             button.disabled = false;
+            input.disabled = false;
             return say(r.body.userMessage || 'Something went wrong sending your request. Please try again.', true);
           }
           var done = document.createElement('div');
@@ -279,9 +372,10 @@
           }
           form.replaceWith(done);
         })
-        .catch(function () {
+        .catch(function (err) {
           button.disabled = false;
-          say('Your request could not be sent. Check your connection and try again.', true);
+          input.disabled = false;
+          say((err && err.userMessage) || 'Your request could not be sent. Check your connection and try again.', true);
         });
     });
   }

@@ -463,7 +463,38 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   outline: 2px solid var(--portal-accent-flat);
   outline-offset: 1px;
 }
-.rq-field input[type="file"] { margin-top: 0.3rem; font-size: 0.9rem; max-width: 100%; }
+/* The native input is hidden (it can't drop one file); portal.js keeps the list. */
+.rq-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.rq-field > .rq-file-pick {
+  display: inline-block;
+  margin-top: 0.3rem;
+  padding: 0.35rem 0.9rem;
+  font-weight: 400;
+  font-size: 0.9rem;
+  border: 1px solid var(--portal-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.rq-file-pick:hover { background: var(--portal-wash); }
+.rq-file-input:focus-visible + .rq-file-pick { outline: 2px solid var(--portal-accent-flat); outline-offset: 1px; }
+.rq-file-input:disabled + .rq-file-pick { opacity: 0.6; cursor: progress; }
+.rq-file-list { list-style: none; margin: 0.5rem 0 0; padding: 0; font-size: 0.9rem; }
+.rq-file-list[hidden] { display: none; }
+.rq-file-list li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.3rem 0; border-top: 1px solid var(--portal-border); }
+.rq-file-list li:last-child { border-bottom: 1px solid var(--portal-border); }
+.rq-file-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rq-file-size { color: var(--portal-muted); white-space: nowrap; }
+.rq-file-remove {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--portal-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.rq-file-remove:focus-visible { outline: 2px solid var(--portal-accent-flat); outline-offset: 2px; }
 .rq-agree label { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 400; font-size: 0.95rem; }
 .rq-agree input { margin-top: 0.35rem; flex: none; }
 .rq-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
