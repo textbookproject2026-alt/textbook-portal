@@ -118,20 +118,26 @@ a:hover { color: var(--portal-accent-hover); }
 
 /* The logo, inlined so it takes the text colour in either theme. */
 .masthead .home {
-  display: inline-block;
-  margin-bottom: 0.75rem;
+  display: block;
+  width: fit-content;
+  margin-bottom: 0.5rem;
   color: var(--portal-ink);
-  line-height: 0;
 }
 .masthead .home:hover,
 .masthead .home:focus-visible { color: var(--portal-accent); }
 .masthead .home svg { display: block; height: 32px; width: auto; }
 
-.masthead h1 {
-  margin: 0 0 0.4rem;
-  font-size: 1.75rem; /* --tb-size-h2: the portal is not a book, so not h1 scale */
-  font-weight: 600;
-  letter-spacing: -0.01em;
+/* The h1 is the logo's name, kept for the heading outline, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .tagline {
@@ -618,7 +624,6 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
 
 @media (max-width: 34rem) {
   body { padding-left: 1rem; padding-right: 1rem; }
-  .masthead h1 { font-size: 1.5rem; }
   .recent li { grid-template-columns: auto 1fr; }
   .recent .recent-pages, .recent .recent-book { grid-column: 1 / -1; }
   .kw-panel { position: static; width: auto; max-height: none; margin: 0 0.6rem 0.6rem; }

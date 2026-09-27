@@ -386,14 +386,14 @@ test('landing order: nav in the header; about, books, then the closed fold-outs'
   const { listed, catalogs } = withCatalog();
   const body = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs }).split('<main>')[1];
   const at = (s) => body.indexOf(s);
-  assert.ok(at('class="jump"') > at('<h1>') && at('class="jump"') < at('</header>'), 'the section nav is in the header');
+  assert.ok(at('class="jump"') > at('<h1 ') && at('class="jump"') < at('</header>'), 'the section nav is in the header');
   assert.ok(at('class="section section--about"') < at('id="books"'));
   assert.ok(at('id="books"') < at('class="about-folds"'));
   assert.ok(at('class="about-folds"') < at('id="keywords"'));
   assert.deepEqual([...body.matchAll(/<details class="about-more">\s*<summary>([^<]+)</g)].map((m) => m[1]),
     ['Read more', 'How to contribute', 'Why Confused for Now?']);
   assert.ok(at('id="recent"') < at('id="authors"') && at('id="authors"') < at('id="topics"'));
-  assert.equal((body.match(/<h1>/g) ?? []).length, 1);
+  assert.equal((body.match(/<h1[ >]/g) ?? []).length, 1);
 });
 
 test('the page names the portal commit it was built from, apart from the registry SHA', () => {
@@ -405,11 +405,12 @@ test('the page names the portal commit it was built from, apart from the registr
   assert.match(renderPage({ books: listed, sha: 'local', css }), /<meta name="portal-version" content="local">/);
 });
 
-test('header: the logo links home, top left, inline so it takes the text colour; the h1 stays', () => {
+test('header: the logo links home, top left, inline so it takes the text colour; the h1 stays, visually hidden', () => {
   const { listed } = withCatalog();
   const header = renderPage({ books: listed, sha: 'a'.repeat(40), css }).split('<header class="masthead">')[1].split('</header>')[0];
   const logo = header.match(/^\s*<a class="home" href="\/" aria-label="Confused for Now \(home\)"><svg aria-hidden="true" focusable="false" [^>]*fill="currentColor"/);
   assert.ok(logo, 'the logo link is the first thing in the header');
   assert.doesNotMatch(header, /<img/);
-  assert.match(header, /<h1>Confused for Now<\/h1>/);
+  assert.match(header, /<h1 class="sr-only">Confused for Now<\/h1>/);
+  assert.match(css, /\.sr-only \{[^}]*clip: rect\(0, 0, 0, 0\)/);
 });

@@ -553,7 +553,7 @@ ${renderAnalytics(analytics)}</head>
   <main>
     <header class="masthead">
       <a class="home" href="/" aria-label="Confused for Now (home)">${LOGO_SVG}</a>
-      <h1>Confused for Now</h1>
+      <h1 class="sr-only">Confused for Now</h1>
       <p class="tagline">Confused for Now is a platform committed to open science and open education.</p>
 ${nav}    </header>
 
