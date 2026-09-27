@@ -1,0 +1,28 @@
+name: ci
+
+# The check that `main`'s branch protection requires: the tests pass and the
+# page builds from the live registry, as Pages will build it. `deployed.yml`'s
+# `portal` job is a different thing: it runs after a push to main and waits for
+# the apex to serve it, so it can't gate a pull request.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: npm test
+      - run: npm run build
