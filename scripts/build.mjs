@@ -37,6 +37,10 @@ const OUT_DIR = fileURLToPath(new URL('public/', ROOT));
 const STATIC_DIR = fileURLToPath(new URL('static/', ROOT));
 const CSS_FILE = fileURLToPath(new URL('src/styles.css', ROOT));
 const JS_FILE = fileURLToPath(new URL('src/portal.js', ROOT));
+// Source of truth: quartz-edition-extras plugins/home-link/assets/logo-full.svg (copied verbatim).
+const LOGO_SVG = readFileSync(fileURLToPath(new URL('src/logo-full.svg', ROOT)), 'utf8')
+  .trim()
+  .replace('<svg ', '<svg aria-hidden="true" focusable="false" ');
 
 export class BuildError extends Error {}
 
@@ -548,6 +552,7 @@ ${renderAnalytics(analytics)}</head>
 <body>
   <main>
     <header class="masthead">
+      <a class="home" href="/" aria-label="Confused for Now (home)">${LOGO_SVG}</a>
       <h1>Confused for Now</h1>
       <p class="tagline">Confused for Now is a platform committed to open science and open education.</p>
 ${nav}    </header>

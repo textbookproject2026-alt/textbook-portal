@@ -404,3 +404,12 @@ test('the page names the portal commit it was built from, apart from the registr
   // A build outside Pages can never be mistaken for a deploy.
   assert.match(renderPage({ books: listed, sha: 'local', css }), /<meta name="portal-version" content="local">/);
 });
+
+test('header: the logo links home, top left, inline so it takes the text colour; the h1 stays', () => {
+  const { listed } = withCatalog();
+  const header = renderPage({ books: listed, sha: 'a'.repeat(40), css }).split('<header class="masthead">')[1].split('</header>')[0];
+  const logo = header.match(/^\s*<a class="home" href="\/" aria-label="Confused for Now \(home\)"><svg aria-hidden="true" focusable="false" [^>]*fill="currentColor"/);
+  assert.ok(logo, 'the logo link is the first thing in the header');
+  assert.doesNotMatch(header, /<img/);
+  assert.match(header, /<h1>Confused for Now<\/h1>/);
+});

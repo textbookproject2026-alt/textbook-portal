@@ -116,6 +116,17 @@ a:hover { color: var(--portal-accent-hover); }
 
 .masthead { margin-bottom: calc(var(--portal-rhythm) * 1.5); }
 
+/* The logo, inlined so it takes the text colour in either theme. */
+.masthead .home {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: var(--portal-ink);
+  line-height: 0;
+}
+.masthead .home:hover,
+.masthead .home:focus-visible { color: var(--portal-accent); }
+.masthead .home svg { display: block; height: 32px; width: auto; }
+
 .masthead h1 {
   margin: 0 0 0.4rem;
   font-size: 1.75rem; /* --tb-size-h2: the portal is not a book, so not h1 scale */
