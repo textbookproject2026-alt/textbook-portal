@@ -395,3 +395,12 @@ test('landing order: nav in the header; about, books, then the closed fold-outs'
   assert.ok(at('id="recent"') < at('id="authors"') && at('id="authors"') < at('id="topics"'));
   assert.equal((body.match(/<h1>/g) ?? []).length, 1);
 });
+
+test('the page names the portal commit it was built from, apart from the registry SHA', () => {
+  const listed = selectBooks({ schema_version: 1, books: [liveBook()] }).listed;
+  const built = renderPage({ books: listed, sha: 'a'.repeat(40), portalSha: 'b'.repeat(40), css });
+  assert.match(built, new RegExp(`<meta name="portal-version" content="${'b'.repeat(40)}">`));
+  assert.match(built, new RegExp(`from registry ${'a'.repeat(40)}`));
+  // A build outside Pages can never be mistaken for a deploy.
+  assert.match(renderPage({ books: listed, sha: 'local', css }), /<meta name="portal-version" content="local">/);
+});

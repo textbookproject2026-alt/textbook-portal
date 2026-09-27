@@ -1,0 +1,83 @@
+# Proves every merge to main reaches readers, and fails (a red check on the merge
+# commit) if confused4now.org isn't serving it within ten minutes. The sibling of
+# textbook-registry's portal.yml, which does the same for a registry change.
+#
+# The two need different markers. /version.txt is the REGISTRY commit the page was
+# built from, so it can't tell a stale portal from a current one: a portal-only
+# merge leaves it unchanged. The page's <meta name="portal-version"> is this repo's
+# commit (CF_PAGES_COMMIT_SHA, set by Pages on every build), and that is what is
+# polled here.
+#
+# Mechanism: the Pages project is connected to this repo with main as its
+# production branch, so the push itself starts the build. If the page is still
+# behind after four minutes and the repository secret PORTAL_DEPLOY_HOOK is set
+# (the same hook URL as in textbook-registry), the hook is fired once, in case
+# Pages missed the push. Without the secret this job only watches.
+#
+# The apex is read from platform.portal.domain in the registry, as portal.yml
+# does, so the hostname lives in one place.
+name: deployed
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployed
+  cancel-in-progress: false
+
+jobs:
+  portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # a newer merge counts as caught up, which needs history
+          persist-credentials: false
+
+      - name: Wait for the apex to serve this commit
+        env:
+          SHA: ${{ github.sha }}
+          HOOK: ${{ secrets.PORTAL_DEPLOY_HOOK }}
+        run: |
+          set -euo pipefail
+          domain="$(curl -fsS --max-time 20 https://raw.githubusercontent.com/textbookproject2026-alt/textbook-registry/main/registry.json | jq -er '.platform.portal.domain')"
+          url="https://$domain/"
+          served() {
+            curl -s --max-time 20 -H 'Cache-Control: no-cache' "$url" \
+              | sed -n 's/.*<meta name="portal-version" content="\([^"]*\)">.*/\1/p' | head -1
+          }
+          # This commit, or a later one on main (a newer merge beat us to it).
+          caught_up() {
+            local s="$1"
+            [ -n "$s" ] || return 1
+            [ "$s" = "$SHA" ] && return 0
+            [[ "$s" =~ ^[0-9a-f]{40}$ ]] || return 1
+            git fetch -q origin main
+            git cat-file -e "$s^{commit}" 2>/dev/null && git merge-base --is-ancestor "$SHA" "$s"
+          }
+
+          echo "Waiting up to 10 minutes for $url to serve portal $SHA."
+          start=$(date +%s); hooked=""
+          while [ $(( $(date +%s) - start )) -lt 600 ]; do
+            now="$(served || true)"
+            if caught_up "$now"; then
+              echo "$url serves portal $now."
+              exit 0
+            fi
+            echo "  still serving ${now:-<no portal-version>}"
+            if [ -z "$hooked" ] && [ $(( $(date +%s) - start )) -ge 240 ] && [ -n "${HOOK:-}" ]; then
+              echo "::warning::Four minutes after the push and still behind, so the deploy hook was fired once. Find out why the push didn't build."
+              curl -fsS -X POST --max-time 30 "$HOOK" > /dev/null
+              hooked=yes
+            fi
+            sleep 20
+          done
+
+          echo "::error::$url is still serving portal ${now:-<no portal-version>} ten minutes after the push, not $SHA. Check the Cloudflare Pages build log (Workers & Pages → textbook-portal → Deployments): a failed build leaves the previous page live. If the page has no portal-version at all, the apex redirect rule may be catching / or the build predates this workflow."
+          exit 1
