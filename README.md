@@ -13,6 +13,7 @@ scripts/catalog.mjs   reads the catalogs; derives key words, recent changes, aut
 scripts/graph.mjs     lays out the key-word graph at build time
 src/styles.css        the palette and type, inlined into the page at build time
 src/portal.js         progressive enhancement for the graph and topic filter, inlined
+src/logo-full.svg     the header logo, inlined; copied from quartz-edition-extras home-link
 static/_headers       Cloudflare Pages control file (not a URL)
 test/                 what the build must not do
 public/               GENERATED, git-ignored
