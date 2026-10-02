@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { selectBooks, renderPage, escapeHtml, BuildError, STATUS_LABELS } from '../scripts/build.mjs';
+import { selectBooks, renderPage, escapeHtml, BuildError, STATUS_LABELS, FONTS_HREF } from '../scripts/build.mjs';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -140,10 +140,21 @@ test('the heading is singular when there is only one live book', () => {
   assert.match(render(registry(liveBook(), { ...liveBook(), slug: 'two' })), /The books<\/h2>/);
 });
 
-test('the stylesheet is inlined, so the page is the only URL it needs', () => {
+test('the stylesheet is inlined; the only stylesheet URL is the fonts, off this origin', () => {
   const html = render(registry(liveBook()));
   assert.match(html, /--portal-accent/);
-  assert.doesNotMatch(html, /<link[^>]+stylesheet/);
+  const links = [...html.matchAll(/<link[^>]+stylesheet[^>]*>/g)].map((m) => m[0]);
+  assert.deepEqual(links, [`<link rel="stylesheet" href="${FONTS_HREF}">`]);
+  assert.match(FONTS_HREF, /^https:\/\/fonts\.googleapis\.com\//);
+});
+
+test('dark mode: the saved choice is applied in <head>, and the tokens exist for both themes', () => {
+  const html = render(registry(liveBook()));
+  const head = html.split('<body>')[0];
+  assert.match(head, /localStorage\.getItem\("theme"\)/);
+  assert.match(head, /:root\[data-theme="dark"\]/);
+  assert.match(head, /prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-theme="light"\]\)/);
+  assert.match(html, /class="icon-btn theme-toggle"/);
 });
 
 test('only live and preview are listable statuses', () => {
@@ -302,9 +313,11 @@ test('the page: all four new sections, a graph that works without script, and st
   assert.equal(targets.length, 3);
   for (const t of targets) assert.match(html, new RegExp(`<li class="topic" id="${t}"`));
   assert.match(html, /#ontology/);
-  // Inlined: no script or stylesheet URL for the apex redirect rule to catch.
+  // Inlined: no script or same-origin stylesheet URL for the apex redirect rule to catch.
   assert.doesNotMatch(html, /<script[^>]+src=/);
-  assert.doesNotMatch(html, /<link[^>]+stylesheet/);
+  assert.doesNotMatch(html, /<link[^>]+stylesheet[^>]+href="\//);
+  // The topic list links into the index, like the graph's nodes.
+  for (const t of targets) assert.match(html, new RegExp(`<li data-label="[^"]*"><a href="#${t}">`));
 });
 
 test('catalog text is escaped too', () => {
@@ -382,18 +395,21 @@ test('the platform\'s Plausible site, counted only on the portal\'s own domain (
   assert.doesNotMatch(renderPage({ books, sha: 'a'.repeat(40), css }), /plausible/);
 });
 
-test('landing order: nav in the header; about, books, then the closed fold-outs', () => {
+test('landing order: nav in the header; about with its fold-outs and the graph, books, recent beside topics and authors, the index, the form', () => {
   const { listed, catalogs } = withCatalog();
-  const body = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs }).split('<main>')[1];
+  const body = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs, requestEndpoint: 'https://fn.vercel.app/api/request-book' }).split('<main>')[1];
   const at = (s) => body.indexOf(s);
   assert.ok(at('class="jump"') > at('<h1 ') && at('class="jump"') < at('</header>'), 'the section nav is in the header');
-  assert.ok(at('class="section section--about"') < at('id="books"'));
-  assert.ok(at('id="books"') < at('class="about-folds"'));
-  assert.ok(at('class="about-folds"') < at('id="keywords"'));
+  assert.ok(at('class="section section--about"') < at('class="about-folds"'));
+  assert.ok(at('class="about-folds"') < at('id="keywords"'), 'the graph is the box beside the about text');
+  assert.ok(at('id="keywords"') < at('id="books"'));
   assert.deepEqual([...body.matchAll(/<details class="about-more">\s*<summary>([^<]+)</g)].map((m) => m[1]),
     ['Read more', 'How to contribute', 'Why Confused for Now?']);
-  assert.ok(at('id="recent"') < at('id="authors"') && at('id="authors"') < at('id="topics"'));
+  assert.ok(at('id="books"') < at('id="recent"'));
+  assert.ok(at('id="recent"') < at('id="topics"') && at('id="topics"') < at('id="authors"'), 'topics and authors share the column beside recent');
+  assert.ok(at('id="authors"') < at('id="topic-index"') && at('id="topic-index"') < at('id="publish"'));
   assert.equal((body.match(/<h1[ >]/g) ?? []).length, 1);
+  assert.match(body, /<a href="#books">The books?<\/a><a href="#recent">Recent<\/a><a href="#topics">Topics<\/a><a href="#publish">Publish a book<\/a>/);
 });
 
 test('the page names the portal commit it was built from, apart from the registry SHA', () => {
@@ -408,7 +424,7 @@ test('the page names the portal commit it was built from, apart from the registr
 test('header: the logo links home, top left, inline so it takes the text colour; the h1 stays, visually hidden', () => {
   const { listed } = withCatalog();
   const header = renderPage({ books: listed, sha: 'a'.repeat(40), css }).split('<header class="masthead">')[1].split('</header>')[0];
-  const logo = header.match(/^\s*<a class="home" href="\/" aria-label="Confused for Now \(home\)"><svg aria-hidden="true" focusable="false" [^>]*fill="currentColor"/);
+  const logo = header.match(/^\s*(<div class="wrap">\s*)?<a class="home" href="\/" aria-label="Confused for Now \(home\)"><svg aria-hidden="true" focusable="false" [^>]*fill="currentColor"/);
   assert.ok(logo, 'the logo link is the first thing in the header');
   assert.doesNotMatch(header, /<img/);
   assert.match(header, /<h1 class="sr-only">Confused for Now<\/h1>/);

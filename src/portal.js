@@ -15,10 +15,15 @@
 (function () {
   'use strict';
   try {
+    enhanceTheme(document.querySelector('.theme-toggle'));
+  } catch (e) {
+    /* the page follows the system setting */
+  }
+  try {
     var graph = document.querySelector('.kw-graph');
     if (graph) enhanceGraph(graph);
-    var topics = document.querySelector('.topics');
-    if (topics) enhanceTopics(topics);
+    enhanceTopics(document.getElementById('topic-filter'), document.querySelector('.topics'));
+    enhanceSearch(document.querySelector('.search-btn'), document.getElementById('topic-filter'));
   } catch (e) {
     /* the static page stands */
   }
@@ -189,20 +194,69 @@
     });
   }
 
-  function enhanceTopics(root) {
-    var input = root.querySelector('.topics-filter input');
+  /* The theme toggle. It sets data-theme on <html> and remembers the choice
+     under `theme`, the key Quartz's darkmode plugin uses on the books; with no
+     saved choice the page follows the system. The <head> script applies the
+     saved choice before first paint. */
+  function enhanceTheme(button) {
+    if (!button) return;
+    var root = document.documentElement;
+    var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    function current() {
+      var set = root.getAttribute('data-theme');
+      if (set === 'dark' || set === 'light') return set;
+      return media && media.matches ? 'dark' : 'light';
+    }
+    function label() {
+      var dark = current() === 'dark';
+      button.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+      button.title = button.getAttribute('aria-label');
+    }
+    button.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) { /* private mode: the choice lasts the page */ }
+      label();
+    });
+    if (media && media.addEventListener) media.addEventListener('change', label);
+    label();
+    button.hidden = false;
+  }
+
+  /* The header's search icon: it goes to the topic filter and focuses it. */
+  function enhanceSearch(button, input) {
+    if (!button || !input) return;
+    button.addEventListener('click', function () {
+      input.scrollIntoView({ block: 'center' });
+      input.focus();
+    });
+    button.hidden = false;
+  }
+
+  /* The topic filter narrows the topic list and the topic index together. */
+  function enhanceTopics(input, index) {
     if (!input) return;
-    root.querySelector('.topics-filter').hidden = false;
-    var items = Array.prototype.slice.call(root.querySelectorAll('.topic'));
-    var letters = Array.prototype.slice.call(root.querySelectorAll('.topic-letter'));
-    var empty = root.querySelector('.topics-empty');
+    input.hidden = false;
+    var tags = Array.prototype.slice.call(document.querySelectorAll('#topic-tags li'));
+    var tagsEmpty = document.querySelector('.taglist-empty');
+    var items = index ? Array.prototype.slice.call(index.querySelectorAll('.topic')) : [];
+    var letters = index ? Array.prototype.slice.call(index.querySelectorAll('.topic-letter')) : [];
+    var empty = index ? index.querySelector('.topics-empty') : null;
     input.addEventListener('input', function () {
       var q = input.value.trim().toLowerCase();
       var shown = 0;
-      items.forEach(function (li) {
+      var last = null;
+      tags.forEach(function (li) {
         var hit = !q || li.dataset.label.indexOf(q) !== -1;
         li.hidden = !hit;
-        if (hit) shown++;
+        li.classList.remove('is-last');
+        if (hit) { shown++; last = li; }
+      });
+      if (last) last.classList.add('is-last');
+      if (tagsEmpty) tagsEmpty.hidden = shown !== 0;
+      items.forEach(function (li) {
+        li.hidden = !(!q || li.dataset.label.indexOf(q) !== -1);
       });
       letters.forEach(function (group) {
         group.hidden = !group.querySelector('.topic:not([hidden])');
@@ -222,7 +276,19 @@
     var PART = 2.5 * 1024 * 1024;
     var nojs = document.querySelector('.rq-nojs');
     if (nojs) nojs.hidden = true;
-    form.hidden = false;
+    // The button opens the form; the form stays out of the way until then.
+    var open = document.querySelector('.rq-open');
+    if (open) {
+      open.hidden = false;
+      open.addEventListener('click', function () {
+        open.hidden = true;
+        form.hidden = false;
+        var first = form.querySelector('input, textarea');
+        if (first) first.focus();
+      });
+    } else {
+      form.hidden = false;
+    }
     var button = form.querySelector('button[type="submit"]');
     var status = form.querySelector('.rq-status');
     var input = form.querySelector('.rq-file-input');
