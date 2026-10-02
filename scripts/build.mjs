@@ -200,51 +200,60 @@ export const topicId = (key) => `topic-${key.replace(/[^a-z0-9]+/g, '-').replace
 
 export const SANDBOX_LABEL = 'Test book — will be removed';
 
-function renderBook(book, stats) {
+/** A book's title up to its subtitle, for lists where the full title would run long. */
+const shortTitle = (title) => title.split(/:\s/)[0];
+
+/** The book's authors as the catalog gives them, else the registry's maintainer. */
+function bookAuthors(book, catalogs) {
+  const names = catalogs.get(book.slug)?.authors ?? [];
+  return names.length ? names : book.maintainer ? [book.maintainer] : [];
+}
+
+/* One book, in the shape of a search result: the title, a line in brown naming
+   the authors and the address, the description, then the counts. */
+function renderBook(book, catalogs) {
+  const stats = bookStats(book, catalogs);
   const label = book.sandbox ? SANDBOX_LABEL : STATUS_LABELS[book.status];
-  const meta = [];
-  if (book.maintainer) meta.push(`Maintained by ${escapeHtml(book.maintainer)}`);
-  meta.push(`<a href="${escapeHtml(book.url)}">${escapeHtml(book.domain)}</a>`);
-  if (book.templatePreview) {
-    meta.push(`<a href="${escapeHtml(book.templatePreview)}">Department edition template</a>`);
-  }
+  const who = bookAuthors(book, catalogs).map(escapeHtml).join(', ');
+  const meta = [who || null, `<a href="${escapeHtml(book.url)}">${escapeHtml(book.domain)}</a>`].filter(Boolean).join(' — ');
+  const sub = [
+    stats ? plural(stats.pages, 'page') : null,
+    stats?.concepts ? plural(stats.concepts, 'concept page') : null,
+    stats?.updated ? `Updated ${escapeHtml(formatDate(stats.updated))}` : null,
+    book.templatePreview ? `<a href="${escapeHtml(book.templatePreview)}">Department edition template</a>` : null,
+  ].filter(Boolean);
 
   return [
-    '      <li class="book">',
-    label ? `        <p class="badge">${escapeHtml(label)}</p>` : null,
-    `        <h3><a href="${escapeHtml(book.url)}">${escapeHtml(book.title)}</a></h3>`,
-    `        <p class="summary" title="${escapeHtml(book.summary)}">${escapeHtml(book.summary)}</p>`,
-    stats
-      ? `        <p class="stats">${[
-          plural(stats.pages, 'page'),
-          stats.concepts ? plural(stats.concepts, 'concept page') : null,
-          stats.updated ? `updated ${escapeHtml(formatDate(stats.updated))}` : null,
-        ]
-          .filter(Boolean)
-          .join('<span class="sep">·</span>')}</p>`
-      : null,
-    `        <p class="meta">${meta.join('<span class="sep">·</span>')}</p>`,
-    '      </li>',
+    '        <li class="result">',
+    label ? `          <p class="badge">${escapeHtml(label)}</p>` : null,
+    `          <h3><a href="${escapeHtml(book.url)}">${escapeHtml(book.title)}</a></h3>`,
+    `          <div class="result-meta">${meta}</div>`,
+    `          <p>${escapeHtml(book.summary)}</p>`,
+    sub.length ? `          <div class="result-sub">${sub.join('<span class="sep">·</span>')}</div>` : null,
+    '        </li>',
   ]
     .filter(Boolean)
     .join('\n');
 }
 
-function renderSection({ className, heading, books, catalogs, id }) {
+function renderBooks(books, catalogs) {
   if (books.length === 0) return null;
   return [
-    `    <section class="section ${className}"${id ? ` id="${id}"` : ''}>`,
-    `      <h2>${escapeHtml(heading)}</h2>`,
-    '      <ul class="books">',
-    books.map((b) => renderBook(b, bookStats(b, catalogs))).join('\n'),
+    '    <section class="section section--live" id="books">',
+    '      <div class="wrap">',
+    `      <h2>${books.length === 1 ? 'The book' : 'The books'}</h2>`,
+    '      <ul class="result-list">',
+    books.map((b) => renderBook(b, catalogs)).join('\n'),
     '      </ul>',
+    '      </div>',
     '    </section>',
   ].join('\n');
 }
 
 /* The keyword graph: a finished SVG, every node a link into the topic index,
-   coloured by topic. src/portal.js adds highlighting, the side panel and the
-   filters (kind, topic, author, book); their data is on each node. */
+   coloured by topic. It sits in the box beside the About text. src/portal.js
+   adds highlighting, the side panel and the filters (kind, topic, author,
+   book); their data is on each node. */
 function renderGraph(kw, books) {
   const g = graphOf(kw);
   if (g.nodes.length < 2) return null;
@@ -259,10 +268,10 @@ function renderGraph(kw, books) {
     .map((e) => {
       const a = at.get(e.a);
       const b = at.get(e.b);
-      const w = (0.6 + (1.6 * e.weight) / maxW).toFixed(2);
+      const w = (0.8 + (1.6 * e.weight) / maxW).toFixed(2);
       return `<line class="kw-edge" data-a="${escapeHtml(e.a)}" data-b="${escapeHtml(e.b)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-width="${w}"/>`;
     })
-    .join('\n        ');
+    .join('\n          ');
   const nodes = placed
     .map((n) => {
       const r = radius(n.pages.length).toFixed(1);
@@ -278,7 +287,7 @@ function renderGraph(kw, books) {
         '</a>',
       ].join('');
     })
-    .join('\n        ');
+    .join('\n          ');
 
   const hasBoth = g.nodes.some((n) => n.kind === 'tag') && g.nodes.some((n) => n.kind === 'concept');
   const hasOther = g.nodes.some((n) => slot(n) === 'other');
@@ -304,24 +313,23 @@ function renderGraph(kw, books) {
   ];
 
   return [
-    '    <section class="section section--keywords" id="keywords">',
-    '      <h2>Key words</h2>',
-    '      <p class="section-lead">Tags and concept pages across the books, coloured by topic. Linked words appear on the same pages; larger ones on more of them. Choose a word to see where it appears.</p>',
-    '      <div class="kw-graph">',
+    '      <div class="kw-box" id="keywords">',
+    '        <h2 class="sr-only">Key words</h2>',
+    '        <div class="kw-graph">',
     controls.length
-      ? `        <div class="kw-filters" hidden>${controls.join('')}<button type="button" class="kw-reset" hidden>Clear filters</button></div>`
+      ? `          <div class="kw-filters" hidden>${controls.join('')}<button type="button" class="kw-reset" hidden>Clear filters</button></div>`
       : null,
-    `        <svg viewBox="0 0 ${VIEW.width} ${VIEW.height}" aria-labelledby="kw-graph-title">`,
-    `        <title id="kw-graph-title">Graph of ${plural(g.nodes.length, 'key word')} and the pages they share</title>`,
-    `        <g class="kw-edges">${edges ? `\n        ${edges}\n        ` : ''}</g>`,
-    `        ${nodes}`,
-    '        </svg>',
-    '        <p class="kw-count" aria-live="polite" hidden></p>',
-    '        <div class="kw-panel" aria-live="polite" hidden></div>',
+    `          <svg viewBox="0 0 ${VIEW.width} ${VIEW.height}" aria-labelledby="kw-graph-title">`,
+    `          <title id="kw-graph-title">Graph of ${plural(g.nodes.length, 'key word')} and the pages they share. Linked words appear on the same pages; larger ones on more of them.</title>`,
+    `          <g class="kw-edges">${edges ? `\n          ${edges}\n          ` : ''}</g>`,
+    `          ${nodes}`,
+    '          </svg>',
+    '          <p class="kw-count" aria-live="polite" hidden></p>',
+    '          <div class="kw-panel" aria-live="polite" hidden></div>',
+    '        </div>',
+    legend.length ? `        <ul class="kw-topics" aria-label="Topics">${legend.join('')}</ul>` : null,
+    '        <p class="kw-legend"><span><span class="kw-key kw-key--concept"></span>Concept page</span><span><span class="kw-key kw-key--tag"></span>Tag</span></p>',
     '      </div>',
-    legend.length ? `      <ul class="kw-topics" aria-label="Topics">${legend.join('')}</ul>` : null,
-    '      <p class="kw-legend"><span class="kw-key kw-key--concept"></span>Concept page<span class="kw-key kw-key--tag"></span>Tag</p>',
-    '    </section>',
   ]
     .filter((l) => l !== null)
     .join('\n');
@@ -336,38 +344,56 @@ function renderRecent(changes) {
     const shown = c.pages.slice(0, SHOW_PAGES).map((p) => `<a href="${escapeHtml(p.url)}">${escapeHtml(p.title)}</a>`);
     const more = c.pages.length - shown.length;
     return (
-      `        <li><time datetime="${escapeHtml(c.date)}">${escapeHtml(formatDate(c.date))}</time>` +
-      `<span class="change change--${c.change}">${c.change === 'added' ? 'New' : 'Updated'}</span>` +
-      `<span class="recent-pages">${shown.join(', ')}${more > 0 ? ` and ${plural(more, 'other page')}` : ''}</span>` +
-      `<span class="recent-book">${escapeHtml(c.book)}</span></li>`
+      `          <li><span class="cap"><time datetime="${escapeHtml(c.date)}">${escapeHtml(formatDate(c.date))}</time><span class="sep">·</span>` +
+      `<span class="change change--${c.change}">${c.change === 'added' ? 'New' : 'Updated'}</span></span>` +
+      `${shown.join(', ')}${more > 0 ? ` and ${plural(more, 'other page')}` : ''}` +
+      ` — <em class="recent-book">${escapeHtml(shortTitle(c.book))}</em></li>`
     );
   });
   return [
-    '    <section class="section section--recent" id="recent">',
-    '      <h2>Recently added and changed</h2>',
-    '      <ul class="recent">',
+    '      <section class="section--recent" id="recent" aria-labelledby="recent-h">',
+    '        <h2 id="recent-h">Recently added and changed</h2>',
+    '        <ul class="recent">',
     ...items,
-    '      </ul>',
-    '    </section>',
+    '        </ul>',
+    '      </section>',
   ].join('\n');
 }
 
-function renderAuthors(list) {
-  if (list.length === 0) return null;
-  return [
-    '    <section class="section section--authors" id="authors">',
-    '      <h2>Browse by author</h2>',
-    '      <ul class="authors">',
-    ...list.map(
-      (a) =>
-        `        <li><span class="author">${escapeHtml(a.name)}</span>` +
-        `<span class="author-books">${a.books.map((b) => `<a href="${escapeHtml(b.url)}">${escapeHtml(b.title)}</a>`).join(', ')}</span></li>`,
-    ),
-    '      </ul>',
-    '    </section>',
-  ].join('\n');
+/* Browse by topic and by author: two lists of names, comma-separated, as the
+   draft has them. A topic goes to its entry in the index below, where its
+   pages are listed; an author with one book goes to the book, an author with
+   several names them. The filter box (portal.js) narrows the topics and the
+   index together. */
+function renderBrowse(nodes, authorList) {
+  if (nodes.length === 0 && authorList.length === 0) return null;
+  const topics = nodes.length
+    ? [
+        '        <h3 id="topics-h">Browse by topic</h3>',
+        '        <input class="filter-input" type="search" id="topic-filter" placeholder="Filter topics…" aria-label="Filter topics" autocomplete="off" spellcheck="false" hidden>',
+        `        <ul class="taglist" id="topic-tags" aria-labelledby="topics-h">${nodes
+          .map((n) => `<li data-label="${escapeHtml(n.label.toLowerCase())}"><a href="#${topicId(n.key)}">${escapeHtml(shownLabel(n))}</a></li>`)
+          .join('')}</ul>`,
+        '        <p class="taglist-empty" hidden>No topic matches.</p>',
+      ]
+    : [];
+  const authors = authorList.length
+    ? [
+        '        <h3 id="authors-h">Browse by author</h3>',
+        `        <ul class="taglist" id="authors" aria-labelledby="authors-h">${authorList
+          .map((a) =>
+            a.books.length === 1
+              ? `<li><a href="${escapeHtml(a.books[0].url)}">${escapeHtml(a.name)}</a></li>`
+              : `<li><span class="author">${escapeHtml(a.name)}</span> <span class="author-books">(${a.books.map((b) => `<a href="${escapeHtml(b.url)}" title="${escapeHtml(b.title)}">${escapeHtml(shortTitle(b.title))}</a>`).join(', ')})</span></li>`,
+          )
+          .join('')}</ul>`,
+      ]
+    : [];
+  return ['      <div class="browse" id="topics">', ...topics, ...authors, '      </div>'].join('\n');
 }
 
+/* The topic index: every key word A–Z with the pages it appears on. The graph's
+   nodes and the topic list above link here. */
 function renderTopics(nodes) {
   if (nodes.length === 0) return null;
   const groups = new Map();
@@ -390,9 +416,10 @@ function renderTopics(nodes) {
       '          </li>',
     ].join('\n');
   return [
-    '    <section class="section section--topics topics" id="topics">',
-    '      <h2>Browse by topic</h2>',
-    '      <p class="topics-filter" hidden><label>Filter topics <input type="search" autocomplete="off" spellcheck="false"></label></p>',
+    '    <section class="section section--topics topics" id="topic-index">',
+    '      <div class="wrap">',
+    '      <h2>Topic index</h2>',
+    '      <p class="section-lead">Every key word across the books, with the pages it appears on. Concept pages are in bold.</p>',
     ...[...groups].map(([letter, list]) =>
       [
         `      <div class="topic-letter">`,
@@ -404,6 +431,7 @@ function renderTopics(nodes) {
       ].join('\n'),
     ),
     '      <p class="topics-empty" hidden>No topic matches.</p>',
+    '      </div>',
     '    </section>',
   ].join('\n');
 }
@@ -419,7 +447,7 @@ function renderTopics(nodes) {
 
    It is part of index.html because the apex serves exactly two files (README,
    "The apex redirect"). It needs the inline script to send; without it the
-   section says how to ask by email instead.
+   section says how to ask by email instead. With it, the button opens the form.
    ------------------------------------------------------------------------- */
 
 /** https://<fn>/api/suggest-edit -> https://<fn>/api/request-book, or null. */
@@ -444,9 +472,11 @@ function renderRequest(endpoint, contact) {
   const text = (id, name, attrs = '') =>
     `<input id="rq-${id}" name="${name}" type="text"${attrs}>`;
   return [
-    '    <section class="section section--request" id="publish">',
+    '    <section class="section section--request cta" id="publish">',
+    '      <div class="wrap">',
     '      <h2>Publish your textbook here</h2>',
-    '      <p class="section-lead">Write an open textbook and we host it: its own address, margin comments, reader suggestions, an in-page editor, and a place on this page and in the key-word graph. Nothing technical is asked of you. Tell us about the book; once we have said yes, it is set up for you and you get an email with its address.</p>',
+    '      <p>Write an open textbook and we host it: its own address, margin comments, reader suggestions, an in-page editor, and a place on this page and in the key-word graph. Nothing technical is asked of you. Tell us about the book; once we have said yes, it is set up for you and you get an email with its address.</p>',
+    '      <button type="button" class="btn rq-open" hidden>Start the request form</button>',
     `      <form class="request-form" data-endpoint="${escapeHtml(endpoint)}" hidden novalidate>`,
     field('title', 'Title of the book', text('title', 'title', ' required maxlength="200" autocomplete="off"')),
     field('authors', 'Author or authors', text('authors', 'authors', ' required maxlength="300" autocomplete="name"'), 'Separate several names with commas.'),
@@ -459,9 +489,10 @@ function renderRequest(endpoint, contact) {
     field('notes', 'Anything else <span class="rq-optional">(optional)</span>', '<textarea id="rq-notes" name="notes" rows="3" maxlength="3000"></textarea>'),
     '        <p class="rq-field rq-agree"><label><input name="agreeLicence" type="checkbox" required><span>The book may be published under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>: anyone may share and adapt it, with credit, under the same licence.</span></label></p>',
     '        <p class="rq-trap" aria-hidden="true"><label>Leave this empty <input name="website" type="text" tabindex="-1" autocomplete="off"></label></p>',
-    '        <p class="rq-actions"><button type="submit">Send request</button><span class="rq-status" role="status" aria-live="polite"></span></p>',
+    '        <p class="rq-actions"><button type="submit" class="btn">Send request</button><span class="rq-status" role="status" aria-live="polite"></span></p>',
     '      </form>',
     `      <p class="rq-nojs">${contact ? `The request form needs JavaScript. Or write to <a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>.` : 'The request form needs JavaScript.'}</p>`,
+    '      </div>',
     '    </section>',
   ].join('\n');
 }
@@ -506,45 +537,76 @@ function renderAnalytics(analytics) {
 /** A keyword as readers see it: a concept by its title, a tag as Obsidian writes it. */
 const shownLabel = (n) => (n.kind === 'tag' ? `#${n.label}` : n.label);
 
+/* The same families the books load (quartz-edition-extras design.ts fontHref):
+   Source Serif 4 with its optical-size axis for the narrative text, Source Sans
+   3 for everything else. display=swap, so the system stack shows meanwhile. */
+export const FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap';
+
+/* Applies the reader's saved theme before first paint, so a dark page never
+   flashes light. The key is `theme`, as Quartz's darkmode plugin uses on the
+   books; each site remembers its own choice. */
+const THEME_SCRIPT = `<script>
+;(function () {
+  try {
+    var t = localStorage.getItem("theme")
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t)
+  } catch (e) {}
+})()
+</script>`;
+
+const ICON_SEARCH =
+  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M20 20L16.5 16.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const ICON_THEME =
+  '<svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
+  '<svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
 export function renderPage({ books, sha, portalSha = 'local', css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null }) {
   const live = books.filter((b) => b.status === 'live');
   const kw = keywords(books, catalogs);
 
-  const parts = [
-    ['books', renderSection({ className: 'section--live', heading: live.length === 1 ? 'The book' : 'The books', books: live, catalogs, id: 'books' })],
-    ['keywords', renderGraph(kw, live)],
-    ['recent', renderRecent(recentChanges(books, catalogs))],
-    ['authors', renderAuthors(authors(books, catalogs))],
-    ['topics', renderTopics(kw.nodes)],
-    ['publish', renderRequest(requestEndpoint, contact)],
-  ].filter(([, html]) => html);
-  const section = Object.fromEntries(parts);
+  const graph = renderGraph(kw, live);
+  const recent = renderRecent(recentChanges(books, catalogs));
+  const browse = renderBrowse(kw.nodes, authors(books, catalogs));
+  const section = {
+    books: renderBooks(live, catalogs),
+    index: renderTopics(kw.nodes),
+    publish: renderRequest(requestEndpoint, contact),
+  };
 
-  // Below the first band: key words, then recent changes and authors side by
-  // side on a wide screen, then topics and the request form.
-  const pair = [section.recent, section.authors].filter(Boolean);
-  const below = [
-    section.keywords,
-    pair.length === 2 ? `    <div class="pair">\n${pair.join('\n\n')}\n    </div>` : pair[0],
-    section.topics,
-    section.publish,
-  ].filter(Boolean);
+  // Recent changes beside the topic and author lists on a wide screen; stacked on a phone.
+  const pair =
+    recent || browse
+      ? ['    <div class="pair">', '      <div class="wrap">', recent, browse, '      </div>', '    </div>'].filter(Boolean).join('\n')
+      : null;
 
-  const NAV = { books: live.length === 1 ? 'The book' : 'Books', keywords: 'Key words', recent: 'Recent', authors: 'Authors', topics: 'Topics', publish: 'Publish a book' };
-  const navItems = parts.filter(([id]) => id && NAV[id]).map(([id]) => `<a href="#${id}">${NAV[id]}</a>`);
+  const NAV = [
+    ['books', live.length === 1 ? 'The book' : 'Books', section.books],
+    ['recent', 'Recent', recent],
+    ['topics', 'Topics', browse],
+    ['publish', 'Publish a book', section.publish],
+  ].filter(([, , html]) => html);
+  const navItems = NAV.map(([id, text]) => `<a href="#${id}">${text}</a>`);
   const nav = navItems.length > 1 ? `      <nav class="jump" aria-label="On this page">${navItems.join('')}</nav>\n` : '';
+  const search = kw.nodes.length
+    ? `<button type="button" class="icon-btn search-btn" aria-label="Search topics" title="Search topics" hidden>${ICON_SEARCH}</button>`
+    : '';
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Confused for Now</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Confused for Now — Open Science &amp; Education</title>
 <meta name="description" content="Open-access textbooks published on this platform.">
 <meta name="robots" content="index, follow">
 <link rel="icon" href="data:,">
 <meta name="portal-version" content="${escapeHtml(portalSha)}">
 <!-- Generated by scripts/build.mjs from registry ${escapeHtml(sha)}. Do not edit: change the registry. -->
+${THEME_SCRIPT}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="${FONTS_HREF}">
 <style>
 ${css.trim()}
 </style>
@@ -552,42 +614,49 @@ ${renderAnalytics(analytics)}</head>
 <body>
   <main>
     <header class="masthead">
+      <div class="wrap">
       <a class="home" href="/" aria-label="Confused for Now (home)">${LOGO_SVG}</a>
       <h1 class="sr-only">Confused for Now</h1>
-      <p class="tagline">Confused for Now is a platform committed to open science and open education.</p>
-${nav}    </header>
+${nav}      <div class="masthead-tools">${search}<button type="button" class="icon-btn theme-toggle" aria-label="Switch to dark mode" aria-pressed="false" hidden>${ICON_THEME}</button></div>
+      </div>
+    </header>
 
-    <div class="band">
-    <section class="section section--about" aria-labelledby="about">
-      <h2 id="about">About</h2>
-      <p>It is built on the belief that knowledge develops through continual discovery, and that this development is marked by starts, stops and reversals. We want to normalise the view that these are not flaws but an integral part of how science works. Scientific communication should therefore take place somewhere that makes room for the detours, mistakes and innovations through which science steadily improves its explanatory power. This site is our attempt to build such a place.</p>
+    <section class="section section--about" id="about" aria-labelledby="about-h">
+      <div class="wrap about-grid${graph ? '' : ' about-grid--alone'}">
+      <div class="prose">
+        <h2 id="about-h">About</h2>
+        <p class="lede">Confused for Now is a platform committed to open science and open education.</p>
+        <p class="serif">It is built on the belief that knowledge develops through continual discovery, and that this development is marked by starts, stops and reversals. We want to normalise the view that these are not flaws but an integral part of how science works. Scientific communication should therefore take place somewhere that makes room for the detours, mistakes and innovations through which science steadily improves its explanatory power. This site is our attempt to build such a place.</p>
+        <div class="about-folds">
+        <details class="about-more">
+          <summary>Read more</summary>
+          <p>Underlying the platform is a commitment to making the ontological assumptions inherent in all scientific work explicit and transparent, because meaningful debate depends on knowing what each position takes for granted. To this end, we embed debate directly in the writing itself. One of our central goals is to reframe scientific work from something finished on the publication date to something that keeps evolving as new information, and better ways of communicating it, emerge.</p>
+          <p>In practice, every text on the platform has a clear version history documenting how it has developed, so readers can follow the field as it moves. Where disagreement cannot be resolved and further work is needed, a version can be branched into an alternative path. The platform also serves as a venue for open-access publication and peer review. For students, it offers a way to stay in touch with current thinking in their field long after their course has ended.</p>
+        </details>
+        <details class="about-more">
+          <summary>How to contribute</summary>
+          <p>Anyone is welcome to take part. As you read, you can comment on passages and propose edits directly in the text. The authors moderate contributions according to principles of transparent dialogue. Each contribution is discussed, then either incorporated as an improvement or recorded as a point of tension that may open a line of future research. Nothing is lost along the way, because every change remains visible in the version history.</p>
+          <p>We are glad you are here, and we hope you will join the conversation.</p>
+        </details>
+        <details class="about-more">
+          <summary>Why Confused for Now?</summary>
+          <p>The name has a double meaning. First, worthwhile knowledge is challenging to acquire, and some confusion is part of healthy learning. It is quite alright, and often helpful, to be confused for now.</p>
+          <p>Second, all knowledge is provisional. Every account of the world is incomplete, not because it is false, but because there is always more to grasp. In that sense, the whole scientific community is confused for now. The big questions of our time carry real weight. The more we can work together on a common project that integrates partial knowledge, the better our chance of reducing, or even eliminating, confusion about why we disagree, even where disagreement remains.</p>
+          <p>We hope the platform serves your community well. If you have ideas on how to make open education and open science work better for you, we would love to hear from you at <a href="mailto:sommer@euc.eur.nl">sommer@euc.eur.nl</a>.</p>
+        </details>
+        </div>
+      </div>
+${graph ?? ''}
+      </div>
     </section>
-${section.books ?? ''}
-    <section class="about-folds" aria-labelledby="about">
-      <details class="about-more">
-        <summary>Read more</summary>
-        <p>Underlying the platform is a commitment to making the ontological assumptions inherent in all scientific work explicit and transparent, because meaningful debate depends on knowing what each position takes for granted. To this end, we embed debate directly in the writing itself. One of our central goals is to reframe scientific work from something finished on the publication date to something that keeps evolving as new information, and better ways of communicating it, emerge.</p>
-        <p>In practice, every text on the platform has a clear version history documenting how it has developed, so readers can follow the field as it moves. Where disagreement cannot be resolved and further work is needed, a version can be branched into an alternative path. The platform also serves as a venue for open-access publication and peer review. For students, it offers a way to stay in touch with current thinking in their field long after their course has ended.</p>
-      </details>
-      <details class="about-more">
-        <summary>How to contribute</summary>
-        <p>Anyone is welcome to take part. As you read, you can comment on passages and propose edits directly in the text. The authors moderate contributions according to principles of transparent dialogue. Each contribution is discussed, then either incorporated as an improvement or recorded as a point of tension that may open a line of future research. Nothing is lost along the way, because every change remains visible in the version history.</p>
-        <p>We are glad you are here, and we hope you will join the conversation.</p>
-      </details>
-      <details class="about-more">
-        <summary>Why Confused for Now?</summary>
-        <p>The name has a double meaning. First, worthwhile knowledge is challenging to acquire, and some confusion is part of healthy learning. It is quite alright, and often helpful, to be confused for now.</p>
-        <p>Second, all knowledge is provisional. Every account of the world is incomplete, not because it is false, but because there is always more to grasp. In that sense, the whole scientific community is confused for now. The big questions of our time carry real weight. The more we can work together on a common project that integrates partial knowledge, the better our chance of reducing, or even eliminating, confusion about why we disagree, even where disagreement remains.</p>
-        <p>We hope the platform serves your community well. If you have ideas on how to make open education and open science work better for you, we would love to hear from you at <a href="mailto:sommer@euc.eur.nl">sommer@euc.eur.nl</a>.</p>
-      </details>
-    </section>
-    </div>
 
-${below.join('\n\n')}
+${[section.books, pair, section.index, section.publish].filter(Boolean).join('\n\n')}
 
     <footer class="colophon">
-      <p>Each book is licensed by its maintainer; the licence is stated on the book itself. Every book&#39;s source text is in a public repository.</p>
-      <p>This page is generated from the platform registry, and lists only what the registry holds.</p>
+      <div class="wrap">
+      <p>© ${new Date().getUTCFullYear()} Confused for Now — every book&#39;s licence is stated on the book itself, and its source text is in a public repository.</p>
+      <p>${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
+      </div>
     </footer>
   </main>
 ${js.trim() ? `<script>\n${js.trim()}\n</script>\n` : ''}</body>

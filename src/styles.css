@@ -1,52 +1,67 @@
 /* ==========================================================================
    styles.css — the platform portal
-   Source of truth for the palette and type: the books' own visual direction
-   (Obsidian Vault/publish.css §1, and platform-test-book/quartz.config.yaml).
-   The tokens below are copied from there deliberately, so the portal reads as
-   part of the same family.
 
-   Two considered departures from publish.css:
+   Palette and fonts: Brandon's draft "Confused4Now fonts and colours" and the
+   landing-page draft of 2 Oct 2026 (visual direction v3). The same palette is
+   in the books' design.yaml (quartz-edition-extras edition-integrations), so
+   the portal and every book read as one site.
 
-   1. --portal-accent is #6A57E0, not #7C6CF0. publish.css §1 records that
-      #7C6CF0 measures ~4.0:1 on white and misses WCAG AA for text, and names
-      #6A57E0 as the AA-strict variant to use for link TEXT. This page is
-      almost entirely link text, so it takes that variant. #7C6CF0 is kept for
-      non-text accent (the rule above the list, the wash).
-   2. No webfont is loaded. "Inter" is named first, as in publish.css, but
-      nothing is fetched: the platform's front page should not depend on a
-      third party to render. Book one behaves the same way; book two's Quartz
-      fetches Inter itself.
+   Light: white, near-black ink, grey muted text, a light-grey hairline, deep
+   olive for links and buttons, light olive for decoration only (it measures
+   3.0:1 on white, so it never colours text a reader needs), and brown for the
+   meta lines and the lede. Dark values are the draft's own: the olives and
+   the brown lifted, on #17181C. Everything that is text clears WCAG AA on
+   its background in both themes (checked 2 Oct 2026).
 
-   This file is inlined into index.html at build time. There is no second
-   request, and no stylesheet URL to keep out of the apex redirect rule.
+   Dark mode follows the system until the reader uses the header toggle, which
+   sets data-theme on <html>; a small inline script in <head> applies the saved
+   choice before first paint. Print always uses the light palette.
+
+   This file is inlined into index.html at build time. The only stylesheet
+   fetched is the fonts, from Google Fonts, as the books fetch theirs.
    ========================================================================== */
 
 :root {
-  --portal-accent:       #6A57E0;
-  --portal-accent-hover: #5B48D9;
-  --portal-accent-flat:  #7C6CF0; /* non-text accent only */
-  --portal-wash:         #EEEBFD;
-  --portal-ink:          #2B2B2B;
-  --portal-muted:        #6E6E73;
-  --portal-faint:        #9B9BA1;
-  --portal-border:       #E6E6E6;
+  color-scheme: light;
   --portal-bg:           #FFFFFF;
-  --portal-bg-soft:      #F7F7F5;
+  --portal-bg-soft:      #F1F3F4;
+  --portal-ink:          #202124;
+  --portal-muted:        #5F6368;
+  --portal-faint:        #9AA0A6; /* placeholders, disabled, the graph's edges: never text */
+  --portal-border:       #DADCE0;
+  --portal-accent:       #52562F; /* deep olive: links, buttons, focus */
+  --portal-accent-hover: #353820;
+  --portal-accent-soft:  #9B9569; /* light olive: decoration only */
+  --portal-wash:         #F0EFE8; /* light olive at low strength on white */
+  --portal-warm:         #8A5A35; /* brown: the lede, the meta lines */
+  --portal-ok:           var(--portal-accent);
+  --portal-bad:          #B3261E;
+  --portal-on-accent:    #FFFFFF;
 
-  --portal-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --portal-font-ui:   "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --portal-font-text: "Source Serif 4", Georgia, "Times New Roman", serif;
 
-  --portal-size-body: 1.125rem; /* 18px, as the books */
-  --portal-lh-body:   1.65;
-  --portal-page:      1120px;   /* two columns at ≥ 960px; see .band */
-  --portal-graph:     720px;    /* the key-word graph's width: its labels stay 12px-ish */
-  --portal-rhythm:    1.5rem;
-  --portal-gutter:    2rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8rem;
+  --fs-ui: 0.85rem;
+  --fs-base: 0.95rem;
+  --fs-md: 1.05rem;
+  --fs-lg: 1.2rem;
+
+  --sp-1: 8px;
+  --sp-2: 12px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --sp-5: 32px;
+  --sp-6: 48px;
+
+  --portal-page: 1120px; /* wide enough for the about prose and the graph side by side */
 
   /* Topic colours for the key-word graph: eight categorical slots in a fixed
      order, never cycled (a ninth topic is "Other"). The books' graph uses the
-     same values (quartz-edition-extras textbook-graph). Validated on the soft
-     surface: adjacent pairs clear the colour-vision and normal-vision floors;
-     slots 2–5 are under 3:1, so every node keeps its text label. */
+     same values (quartz-edition-extras textbook-graph). Adjacent pairs clear
+     the colour-vision and normal-vision floors; slots 2–5 are under 3:1, so
+     every node keeps its text label. */
   --kw-topic-0: #2a78d6;
   --kw-topic-1: #eb6834;
   --kw-topic-2: #1baf7a;
@@ -59,17 +74,21 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --portal-accent:       #A79AF7;
-    --portal-accent-hover: #8F7FF2;
-    --portal-accent-flat:  #A79AF7;
-    --portal-wash:         rgba(124, 108, 240, 0.15);
-    --portal-ink:          #EBEBEC;
-    --portal-muted:        #9B9BA1;
-    --portal-faint:        #77777D;
-    --portal-border:       #2E2E32;
-    --portal-bg:           #161618;
-    --portal-bg-soft:      #1D1D20;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --portal-bg:           #17181C;
+    --portal-bg-soft:      #202124;
+    --portal-ink:          #E8EAED;
+    --portal-muted:        #9AA0A6;
+    --portal-faint:        #5F6368;
+    --portal-border:       #3C4043;
+    --portal-accent:       #A7A374;
+    --portal-accent-hover: #D6D3B5;
+    --portal-accent-soft:  #C7C39B;
+    --portal-wash:         rgba(167, 163, 116, 0.16);
+    --portal-warm:         #C99468;
+    --portal-bad:          #F2B8B5;
+    --portal-on-accent:    #17181C;
 
     --kw-topic-0: #3987e5;
     --kw-topic-1: #d95926;
@@ -82,50 +101,55 @@
     --kw-topic-other: #6e6e73;
   }
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --portal-bg:           #17181C;
+  --portal-bg-soft:      #202124;
+  --portal-ink:          #E8EAED;
+  --portal-muted:        #9AA0A6;
+  --portal-faint:        #5F6368;
+  --portal-border:       #3C4043;
+  --portal-accent:       #A7A374;
+  --portal-accent-hover: #D6D3B5;
+  --portal-accent-soft:  #C7C39B;
+  --portal-wash:         rgba(167, 163, 116, 0.16);
+  --portal-warm:         #C99468;
+  --portal-bad:          #F2B8B5;
+  --portal-on-accent:    #17181C;
+
+  --kw-topic-0: #3987e5;
+  --kw-topic-1: #d95926;
+  --kw-topic-2: #199e70;
+  --kw-topic-3: #c98500;
+  --kw-topic-4: #d55181;
+  --kw-topic-5: #008300;
+  --kw-topic-6: #9085e9;
+  --kw-topic-7: #e66767;
+  --kw-topic-other: #6e6e73;
+}
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 6rem; }
 
 body {
   margin: 0;
-  padding: calc(var(--portal-rhythm) * 2) var(--portal-gutter) calc(var(--portal-rhythm) * 3);
   background-color: var(--portal-bg);
   color: var(--portal-ink);
-  font-family: var(--portal-font);
-  font-size: var(--portal-size-body);
-  line-height: var(--portal-lh-body);
+  font-family: var(--portal-font-ui);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
-main { max-width: var(--portal-page); margin: 0 auto; }
+a { color: var(--portal-accent); text-decoration: none; }
+a:hover { color: var(--portal-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
 
-a {
-  color: var(--portal-accent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-a:hover { color: var(--portal-accent-hover); }
+:focus-visible { outline: 2px solid var(--portal-accent); outline-offset: 2px; }
 
-:focus-visible {
-  outline: 2px solid var(--portal-accent);
-  outline-offset: 3px;
-  border-radius: 2px;
-}
+.wrap { max-width: var(--portal-page); margin: 0 auto; padding: 0 var(--sp-4); }
 
-/* --- masthead ----------------------------------------------------------- */
-
-.masthead { margin-bottom: calc(var(--portal-rhythm) * 1.5); }
-
-/* The logo, inlined so it takes the text colour in either theme. */
-.masthead .home {
-  display: block;
-  width: fit-content;
-  margin-bottom: 0.5rem;
-  color: var(--portal-ink);
-}
-.masthead .home:hover,
-.masthead .home:focus-visible { color: var(--portal-accent); }
-.masthead .home svg { display: block; height: 32px; width: auto; }
+button { font-family: inherit; }
 
 /* The h1 is the logo's name, kept for the heading outline, not shown. */
 .sr-only {
@@ -140,183 +164,136 @@ a:hover { color: var(--portal-accent-hover); }
   border: 0;
 }
 
-.tagline {
-  margin: 0;
+/* --- header -------------------------------------------------------------- */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--portal-bg);
+  padding: var(--sp-4) 0;
+}
+.masthead .wrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--portal-border);
+}
+.masthead .home { flex-shrink: 0; display: flex; align-items: center; color: var(--portal-ink); }
+.masthead .home:hover, .masthead .home:focus-visible { color: var(--portal-accent); text-decoration: none; }
+.masthead .home svg { display: block; height: 30px; width: auto; }
+
+.jump {
+  display: flex;
+  gap: var(--sp-4);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.jump::-webkit-scrollbar { display: none; }
+.jump a { color: var(--portal-muted); }
+.jump a:hover { color: var(--portal-accent); text-decoration: none; }
+
+.masthead-tools { display: flex; align-items: center; gap: var(--sp-1); flex-shrink: 0; margin-left: auto; }
+.icon-btn {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--portal-ink);
+  cursor: pointer;
+}
+.icon-btn:hover { color: var(--portal-accent); }
+.icon-btn[hidden] { display: none; }
+/* The theme toggle: a sun on a dark page, a moon on a light one. */
+.theme-toggle .moon, .theme-toggle .sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .sun { display: block; }
+:root[data-theme="light"] .theme-toggle .moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .theme-toggle .sun { display: block; }
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .theme-toggle .moon { display: block; }
+}
+
+/* --- sections ------------------------------------------------------------ */
+
+.section { padding: var(--sp-6) 0; }
+.section + .section > .wrap, .pair + .section > .wrap, .section + .pair > .wrap {
+  border-top: 1px solid var(--portal-border);
+  padding-top: var(--sp-6);
+}
+.section + .section, .pair + .section, .section + .pair { padding-top: 0; }
+
+.section h2, .pair h2, .browse h3 {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--portal-muted);
 }
 
-/* Section nav: wraps on a narrow screen, no menu. */
-.jump {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-  margin: 0.75rem 0 0;
-  font-size: 0.9rem;
-}
-.jump a { color: var(--portal-muted); text-decoration: none; }
-.jump a:hover { color: var(--portal-accent-hover); text-decoration: underline; }
+/* --- about and the graph ------------------------------------------------- */
 
-/* --- first band: about and the books ------------------------------------ */
+.about-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+.about-grid--alone { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 860px) { .about-grid { grid-template-columns: minmax(0, 1fr); } }
 
-/* Source order is the phone order: about, books, the fold-outs. From 960px the
-   about column takes the fold-outs under it and the books sit to its right. */
-.band > .section--about { margin-top: 0; }
-.about-folds { margin-top: var(--portal-rhythm); }
+.prose { max-width: 640px; }
+.prose p { margin: 0 0 var(--sp-3); font-size: var(--fs-md); }
+.lede { font-family: var(--portal-font-ui); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em; color: var(--portal-warm); }
+.serif, .prose .about-more p { font-family: var(--portal-font-text); line-height: 1.65; }
 
-@media (min-width: 960px) {
-  .band {
-    display: grid;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "about books" "folds books";
-    column-gap: calc(var(--portal-rhythm) * 2);
-  }
-  .band > .section--about { grid-area: about; }
-  .band > .section--live { grid-area: books; margin-top: 0; }
-  .band > .about-folds { grid-area: folds; }
-}
-
-/* The intro is the page's main prose, not a lead-in: body text. */
-.section--about p, .about-more p {
-  margin: 0 0 0.75rem;
-  font-size: var(--portal-size-body);
-  color: var(--portal-ink);
-}
-
-.about-more { border-top: 1px solid var(--portal-border); }
-.about-more:last-child { border-bottom: 1px solid var(--portal-border); }
+/* The fold-outs read as the draft's link list; open, they show their text in place. */
 .about-more summary {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0;
-  font-weight: 600;
+  gap: var(--sp-1);
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-md);
   color: var(--portal-accent);
   cursor: pointer;
   list-style: none;
 }
 .about-more summary::-webkit-details-marker { display: none; }
-.about-more summary::before {
-  content: "";
-  flex: none;
-  width: 0.45em;
-  height: 0.45em;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 120ms;
-}
-.about-more[open] summary::before { transform: rotate(45deg); }
+.about-more summary::before { content: "›"; font-weight: 600; transition: transform 120ms; }
+.about-more[open] summary::before { transform: rotate(90deg); }
 .about-more summary:hover { color: var(--portal-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
-.about-more[open] { padding-bottom: 0.25rem; }
+.about-more[open] { padding-bottom: var(--sp-2); }
+.about-more p:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { .about-more summary::before { transition: none; } }
 
-/* --- sections ----------------------------------------------------------- */
-
-.section { margin-top: calc(var(--portal-rhythm) * 2); }
-
-.section > h2 {
-  margin: 0 0 var(--portal-rhythm);
-  padding-top: var(--portal-rhythm);
-  border-top: 1px solid var(--portal-border);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--portal-muted);
-}
-
-/* --- book list ---------------------------------------------------------- */
-
-.books { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
-
-.book {
-  min-width: 0;
-  padding: 0.85rem 1.1rem;
-  border: 1px solid var(--portal-border);
-  border-radius: 10px;
-  background-color: var(--portal-bg);
-}
-.book:hover { border-color: var(--portal-accent-flat); }
-
-.book h3 {
-  margin: 0 0 0.2rem;
-  font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.book p { margin: 0 0 0.3rem; }
-
-/* One line; the whole description is in the title attribute. */
-.book .summary {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 0.95rem;
-}
-
-.meta {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--portal-muted);
-}
-
-.meta a { color: var(--portal-muted); }
-.meta a:hover { color: var(--portal-accent-hover); }
-
-.meta .sep { padding: 0 0.5em; color: var(--portal-faint); }
-
-.badge {
-  display: inline-block;
-  margin-bottom: 0.45rem;
-  padding: 0.15em 0.6em;
-  border: 1px solid var(--portal-border);
-  border-radius: 999px;
-  background-color: var(--portal-bg-soft);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--portal-muted);
-}
-
-/* --- section leads ------------------------------------------------------ */
-
-.section-lead {
-  margin: calc(var(--portal-rhythm) * -0.5) 0 var(--portal-rhythm);
-  max-width: 38em;
-  font-size: 0.95rem;
-  color: var(--portal-muted);
-}
-
-.stats {
-  margin: 0 0 0.35rem;
-  font-size: 0.9rem;
-  color: var(--portal-ink);
-}
-.stats .sep { padding: 0 0.5em; color: var(--portal-faint); }
-
-/* --- key words graph ---------------------------------------------------- */
+/* --- key words graph (the about box) ------------------------------------- */
 
 .kw-graph {
   position: relative;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--portal-border);
-  border-radius: 10px;
-  background-color: var(--portal-bg-soft);
+  border-radius: 6px;
+  background-color: var(--portal-bg);
+  padding: var(--sp-2);
 }
-
+/* The filters sit under the picture, so the box opens on the graph itself. */
+.kw-graph .kw-filters { order: 1; padding: var(--sp-2) 0 0; }
+.kw-graph .kw-count { order: 2; }
 .kw-graph svg { display: block; width: 100%; height: auto; }
 
-.kw-edge { stroke: var(--portal-faint); opacity: 0.45; transition: stroke 120ms, opacity 120ms; }
+.kw-edge { stroke: var(--portal-border); opacity: 0.9; transition: stroke 120ms, opacity 120ms; }
 
 .kw-node { cursor: pointer; text-decoration: none; }
 .kw-node { --c: var(--kw-topic-other); }
-.kw-node circle {
-  fill: var(--c);
-  stroke: var(--portal-bg-soft);
-  stroke-width: 2;
-  transition: opacity 120ms;
-}
+.kw-node circle { fill: var(--c); stroke: var(--portal-bg); stroke-width: 2; transition: opacity 120ms; }
 /* A concept is a filled dot in its topic's colour; a tag is a ring in it. */
 .kw-node--tag circle { fill: var(--portal-bg); stroke: var(--c); stroke-width: 2; }
 [data-t="0"] { --c: var(--kw-topic-0); }
@@ -329,11 +306,11 @@ a:hover { color: var(--portal-accent-hover); }
 [data-t="7"] { --c: var(--kw-topic-7); }
 [data-t="other"] { --c: var(--kw-topic-other); }
 .kw-node text {
-  font-family: var(--portal-font);
-  font-size: 12px;
+  font-family: var(--portal-font-ui);
+  font-size: 13px;
   fill: var(--portal-ink);
   paint-order: stroke;
-  stroke: var(--portal-bg-soft);
+  stroke: var(--portal-bg);
   stroke-width: 3px;
   stroke-linejoin: round;
   transition: opacity 120ms;
@@ -344,11 +321,11 @@ a:hover { color: var(--portal-accent-hover); }
 
 /* Lit: one keyword and its neighbours stand out, the rest recede. */
 svg.is-lit .kw-node circle, svg.is-lit .kw-node text { opacity: 0.25; }
-svg.is-lit .kw-edge { opacity: 0.12; }
+svg.is-lit .kw-edge { opacity: 0.25; }
 svg.is-lit .kw-node.is-on circle, svg.is-lit .kw-node.is-on text,
 svg.is-lit .kw-node.is-near circle, svg.is-lit .kw-node.is-near text { opacity: 1; }
 svg.is-lit .kw-node.is-on text { font-weight: 600; }
-svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
+svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
 
 /* Filtered out (portal.js): gone, with every edge that touches it. */
 .kw-node.is-out, .kw-edge.is-out { display: none; }
@@ -358,8 +335,7 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.75rem;
-  padding: 0.6rem 0.6rem 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--portal-muted);
 }
 .kw-filters[hidden], .kw-count[hidden], .kw-reset[hidden] { display: none; }
@@ -369,14 +345,14 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   font: inherit;
   padding: 0.1rem 0.3rem;
   border: 1px solid var(--portal-border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--portal-bg);
   color: var(--portal-ink);
 }
-.kw-count { margin: 0; padding: 0 0.6rem 0.5rem; font-size: 0.8rem; color: var(--portal-muted); }
+.kw-count { margin: 0; padding: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--portal-muted); }
 .kw-filters button, .kw-panel-close {
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   padding: 0.15rem 0.65rem;
   border: 1px solid var(--portal-border);
   border-radius: 999px;
@@ -384,61 +360,53 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   color: var(--portal-muted);
   cursor: pointer;
 }
-.kw-filters button[aria-pressed="true"] {
-  border-color: var(--portal-accent-flat);
-  background: var(--portal-wash);
-  color: var(--portal-accent);
-}
+.kw-filters button[aria-pressed="true"] { border-color: var(--portal-accent-soft); background: var(--portal-wash); color: var(--portal-accent); }
 
 .kw-panel {
   position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  width: min(18rem, calc(100% - 1.2rem));
-  max-height: calc(100% - 1.2rem);
+  top: var(--sp-2);
+  right: var(--sp-2);
+  width: min(18rem, calc(100% - 24px));
+  max-height: calc(100% - 24px);
   overflow: auto;
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--portal-border);
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--portal-bg);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  font-size: 0.9rem;
+  font-size: var(--fs-ui);
 }
-.kw-panel h3 { margin: 0 1.5rem 0.4rem 0; font-size: 1.05rem; line-height: 1.3; }
+.kw-panel h3 { margin: 0 1.5rem 0.4rem 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; }
 .kw-panel ul { margin: 0; padding: 0; list-style: none; }
 .kw-panel li { margin: 0 0 0.35rem; line-height: 1.35; }
-.kw-panel .topic-book { display: block; font-size: 0.8rem; color: var(--portal-muted); }
-.kw-panel-kind { margin: 0; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--portal-muted); }
+.kw-panel .topic-book { display: block; font-size: var(--fs-sm); color: var(--portal-muted); }
+.kw-panel-kind { margin: 0; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--portal-muted); }
 .kw-panel-close { position: absolute; top: 0.45rem; right: 0.45rem; padding: 0 0.45rem; line-height: 1.4; }
 
 .kw-legend {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 0.4rem;
-  margin: 0.5rem 0 0;
-  font-size: 0.8rem;
+  flex-wrap: wrap;
+  gap: 0.3rem var(--sp-3);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
   color: var(--portal-muted);
 }
-.kw-key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
-.kw-key + .kw-key, .kw-legend .kw-key--tag { margin-left: 0.8rem; }
+.kw-key { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 .kw-key--concept { background: var(--portal-faint); }
 .kw-key--tag { border: 2px solid var(--portal-faint); background: var(--portal-bg); }
 
 .kw-topics {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.2rem 0.4rem;
-  margin: 0.6rem 0 0;
+  margin: var(--sp-2) 0 0;
   padding: 0;
   list-style: none;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
-.kw-graph, .kw-legend, .kw-topics {
-  max-width: var(--portal-graph);
-  margin-left: auto;
-  margin-right: auto;
-}
-
 .kw-topics button {
   display: inline-flex;
   align-items: center;
@@ -448,92 +416,141 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   border: 1px solid transparent;
   border-radius: 999px;
   background: none;
-  color: var(--portal-ink);
+  color: var(--portal-muted);
   cursor: pointer;
 }
 .kw-topics button:disabled { cursor: default; }
-.kw-topics button:not(:disabled):hover { border-color: var(--portal-border); }
-.kw-topics button[aria-pressed="true"] { border-color: var(--portal-accent-flat); background: var(--portal-wash); }
-.kw-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.kw-topics button:not(:disabled):hover { border-color: var(--portal-border); color: var(--portal-ink); }
+.kw-topics button[aria-pressed="true"] { border-color: var(--portal-accent-soft); background: var(--portal-wash); color: var(--portal-ink); }
+.kw-swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 
-/* --- recent changes and authors ----------------------------------------- */
+/* --- the books ----------------------------------------------------------- */
 
-@media (min-width: 960px) {
-  .pair {
-    display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    column-gap: calc(var(--portal-rhythm) * 2);
-    align-items: start;
-  }
+.result-list { list-style: none; margin: 0; padding: 0; }
+.result { padding: var(--sp-3) 0; border-bottom: 1px solid var(--portal-border); }
+.result:last-child { border-bottom: 0; }
+.result h3 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 400; line-height: 1.35; }
+/* The title: light olive into deep olive. The light end is short, so most of
+   the title sits on the deep olive and stays readable. */
+.result h3 a {
+  background: linear-gradient(135deg, var(--portal-accent-soft) 0%, var(--portal-accent) 40%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-decoration-color: var(--portal-accent);
 }
+.result h3 a:hover { text-decoration: underline; }
+.result-meta { font-size: var(--fs-ui); color: var(--portal-warm); margin-bottom: var(--sp-1); }
+.result-meta a { color: inherit; }
+.result p { margin: 0 0 var(--sp-1); max-width: 680px; color: var(--portal-ink); font-size: var(--fs-base); }
+.result-sub { font-size: var(--fs-sm); color: var(--portal-muted); }
+.result-sub .sep, .result-meta .sep { padding: 0 0.45em; }
+.result-sub a { color: var(--portal-muted); text-decoration: underline; text-underline-offset: 2px; }
+.result-sub a:hover { color: var(--portal-accent); }
 
-.recent { list-style: none; margin: 0; padding: 0; }
-.recent li {
-  display: grid;
-  grid-template-columns: 6.5rem 5.2rem 1fr;
-  gap: 0 0.75rem;
-  align-items: baseline;
-  padding: 0.45rem 0;
-  border-top: 1px solid var(--portal-border);
-}
-.recent li:first-child { border-top: 0; padding-top: 0; }
-.recent time { font-size: 0.85rem; color: var(--portal-muted); font-variant-numeric: tabular-nums; }
-.recent .recent-book { grid-column: 3; font-size: 0.85rem; color: var(--portal-muted); }
-.recent .recent-pages { color: var(--portal-muted); }
-.change {
-  justify-self: start;
-  padding: 0.05em 0.55em;
+.badge {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 0.1em 0.55em;
+  border: 1px solid var(--portal-border);
   border-radius: 999px;
-  font-size: 0.72rem;
+  background: var(--portal-bg-soft);
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--portal-muted);
-  background: var(--portal-bg-soft);
-  border: 1px solid var(--portal-border);
 }
-.change--added { color: var(--portal-accent); background: var(--portal-wash); border-color: transparent; }
 
-/* --- browse -------------------------------------------------------------- */
+/* --- recent changes, and browse by topic and author ---------------------- */
 
-.authors { list-style: none; margin: 0; padding: 0; }
-.authors li { padding: 0.4rem 0; border-top: 1px solid var(--portal-border); }
-.authors li:first-child { border-top: 0; padding-top: 0; }
-.author { display: block; font-weight: 600; }
-.author-books { font-size: 0.95rem; }
+.pair > .wrap { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+.pair { padding: var(--sp-6) 0; }
+.pair .browse { border-left: 1px solid var(--portal-border); padding-left: var(--sp-4); }
+@media (max-width: 860px) {
+  .pair > .wrap { grid-template-columns: minmax(0, 1fr); }
+  .pair .browse { border-left: 0; padding-left: 0; }
+}
 
-.topics-filter { margin: 0 0 var(--portal-rhythm); font-size: 0.9rem; color: var(--portal-muted); }
-.topics-filter input {
-  margin-left: 0.5rem;
-  padding: 0.3rem 0.6rem;
-  width: min(16rem, 60%);
+.recent { list-style: none; margin: 0; padding: 0; }
+.recent li { padding: var(--sp-2) 0; border-bottom: 1px solid var(--portal-border); font-size: var(--fs-base); }
+.recent li:last-child { border-bottom: 0; }
+.recent .cap { display: block; font-size: var(--fs-sm); color: var(--portal-muted); margin-bottom: 4px; }
+.recent .cap .sep { padding: 0 0.45em; }
+.recent .recent-book { font-style: italic; }
+.recent .change--added { color: var(--portal-accent); font-weight: 600; }
+
+.browse h3 { margin-bottom: var(--sp-2); }
+.browse h3 + .taglist, .browse .filter-input + .taglist { margin-bottom: var(--sp-4); }
+.filter-input {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--portal-border);
+  border-radius: 4px;
   font: inherit;
+  font-size: var(--fs-ui);
   color: var(--portal-ink);
   background: var(--portal-bg);
-  border: 1px solid var(--portal-border);
-  border-radius: 6px;
 }
+.filter-input[hidden] { display: none; }
+.taglist { font-size: var(--fs-base); line-height: 2; margin: 0; padding: 0; list-style: none; }
+.taglist li { display: inline; }
+.taglist li[hidden] { display: none; }
+/* A comma between tags, in the text colour; the filter hides whole items, so
+   the comma goes with its tag. */
+.taglist li::after { content: ", "; color: var(--portal-ink); }
+.taglist li:last-child::after, .taglist li.is-last::after { content: ""; }
+.taglist .author-books { color: var(--portal-muted); }
+.taglist-empty { margin: 0; font-size: var(--fs-sm); color: var(--portal-muted); }
+.taglist-empty[hidden] { display: none; }
+
+/* --- the topic index ----------------------------------------------------- */
+
+.topics .section-lead { margin: calc(var(--sp-4) * -0.5) 0 var(--sp-4); max-width: 38em; font-size: var(--fs-base); color: var(--portal-muted); }
 .topic-letter { display: grid; grid-template-columns: 2rem 1fr; gap: 0 0.75rem; margin-bottom: 0.9rem; }
+.topic-letter[hidden] { display: none; }
 .topic-letter > h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--portal-faint); line-height: 1.6; }
 .topic-list { list-style: none; margin: 0; padding: 0; }
-.topic { margin: 0 0 0.75rem; scroll-margin-top: 1.5rem; }
+.topic { margin: 0 0 0.75rem; scroll-margin-top: 6rem; }
+.topic[hidden] { display: none; }
 .topic:target h4 { color: var(--portal-accent); }
 .topic h4 { margin: 0; font-size: 1rem; font-weight: 600; }
-.topic-kind { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-faint); }
-.topic ul { margin: 0.15rem 0 0; padding: 0; list-style: none; font-size: 0.95rem; }
+.topic-kind { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-muted); }
+.topic ul { margin: 0.15rem 0 0; padding: 0; list-style: none; font-size: var(--fs-base); }
 .topic li { line-height: 1.45; }
 .topic li.topic-own a { font-weight: 600; }
-.topic-book { margin-left: 0.5rem; font-size: 0.82rem; color: var(--portal-muted); }
+.topic-book { margin-left: 0.5rem; font-size: var(--fs-sm); color: var(--portal-muted); }
 .topics-empty { color: var(--portal-muted); }
+.topics-empty[hidden] { display: none; }
 
-/* --- publish your textbook here ----------------------------------------- */
+/* --- publish your textbook here ------------------------------------------ */
 
-.request-form { max-width: 34em; }
+.cta p { max-width: 600px; margin: 0 0 var(--sp-4); font-size: var(--fs-base); }
+.btn {
+  display: inline-block;
+  border: 0;
+  background: var(--portal-accent);
+  color: var(--portal-on-accent);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 4px;
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover { background: var(--portal-accent-hover); color: var(--portal-on-accent); text-decoration: none; }
+.btn[hidden] { display: none; }
+
+.request-form { max-width: 34em; margin-top: var(--sp-4); }
 .request-form[hidden], .rq-nojs[hidden] { display: none; }
+.rq-nojs { color: var(--portal-muted); }
 .rq-field { margin: 0 0 1rem; }
-.rq-field > label { display: block; font-weight: 600; font-size: 0.95rem; }
+.rq-field > label { display: block; font-weight: 600; font-size: var(--fs-base); }
 .rq-optional { font-weight: 400; color: var(--portal-muted); }
-.rq-hint { display: block; font-size: 0.85rem; color: var(--portal-muted); margin: 0.1rem 0 0.3rem; }
+.rq-hint { display: block; font-size: var(--fs-ui); color: var(--portal-muted); margin: 0.1rem 0 0.3rem; }
 .rq-field input[type="text"], .rq-field input[type="email"], .rq-field input[type="url"], .rq-field textarea {
   display: block;
   width: 100%;
@@ -544,13 +561,9 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   color: var(--portal-ink);
   background: var(--portal-bg);
   border: 1px solid var(--portal-border);
-  border-radius: 6px;
+  border-radius: 4px;
 }
 .rq-field textarea { resize: vertical; }
-.rq-field input:focus-visible, .rq-field textarea:focus-visible, .rq-actions button:focus-visible {
-  outline: 2px solid var(--portal-accent-flat);
-  outline-offset: 1px;
-}
 /* The native input is hidden (it can't drop one file); portal.js keeps the list. */
 .rq-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 .rq-field > .rq-file-pick {
@@ -558,78 +571,61 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-flat); opacity: 0.9; }
   margin-top: 0.3rem;
   padding: 0.35rem 0.9rem;
   font-weight: 400;
-  font-size: 0.9rem;
+  font-size: var(--fs-ui);
   border: 1px solid var(--portal-border);
-  border-radius: 999px;
+  border-radius: 4px;
   cursor: pointer;
 }
 .rq-file-pick:hover { background: var(--portal-wash); }
-.rq-file-input:focus-visible + .rq-file-pick { outline: 2px solid var(--portal-accent-flat); outline-offset: 1px; }
+.rq-file-input:focus-visible + .rq-file-pick { outline: 2px solid var(--portal-accent); outline-offset: 1px; }
 .rq-file-input:disabled + .rq-file-pick { opacity: 0.6; cursor: progress; }
-.rq-file-list { list-style: none; margin: 0.5rem 0 0; padding: 0; font-size: 0.9rem; }
+.rq-file-list { list-style: none; margin: 0.5rem 0 0; padding: 0; font-size: var(--fs-ui); }
 .rq-file-list[hidden] { display: none; }
 .rq-file-list li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.3rem 0; border-top: 1px solid var(--portal-border); }
 .rq-file-list li:last-child { border-bottom: 1px solid var(--portal-border); }
 .rq-file-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .rq-file-size { color: var(--portal-muted); white-space: nowrap; }
-.rq-file-remove {
-  font: inherit;
-  font-size: 0.85rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--portal-accent);
-  text-decoration: underline;
-  cursor: pointer;
-}
-.rq-file-remove:focus-visible { outline: 2px solid var(--portal-accent-flat); outline-offset: 2px; }
-.rq-agree label { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 400; font-size: 0.95rem; }
-.rq-agree input { margin-top: 0.35rem; flex: none; }
+.rq-file-remove { font: inherit; font-size: var(--fs-ui); padding: 0; border: 0; background: none; color: var(--portal-accent); text-decoration: underline; cursor: pointer; }
+.rq-agree label { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 400; font-size: var(--fs-base); }
+.rq-agree input { margin-top: 0.35rem; flex: none; accent-color: var(--portal-accent); }
 .rq-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .rq-actions { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
-.rq-actions button {
-  font: inherit;
-  font-weight: 600;
-  padding: 0.5rem 1.2rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--portal-accent);
-  color: #fff;
-  cursor: pointer;
-}
-.rq-actions button:hover { background: var(--portal-accent-hover); }
 .rq-actions button:disabled { opacity: 0.6; cursor: progress; }
-.rq-status { font-size: 0.9rem; color: var(--portal-muted); }
-.rq-status--bad { color: #b3261e; }
-.rq-done { max-width: 34em; padding: 1rem 1.25rem; border-radius: 8px; background: var(--portal-wash); }
+.rq-status { font-size: var(--fs-ui); color: var(--portal-muted); }
+.rq-status--bad { color: var(--portal-bad); }
+.rq-done { max-width: 34em; padding: 1rem 1.25rem; border-radius: 6px; background: var(--portal-wash); }
 .rq-done p { margin: 0 0 0.4rem; }
-.rq-done-title { font-weight: 600; }
+.rq-done-title { font-weight: 600; color: var(--portal-ok); }
 
-@media (prefers-color-scheme: dark) {
-  .rq-actions button { color: #161618; }
-  .rq-status--bad { color: #f2b8b5; }
-}
+/* --- footer -------------------------------------------------------------- */
 
-/* --- footer ------------------------------------------------------------- */
+.colophon { padding: var(--sp-4) 0 var(--sp-6); font-size: var(--fs-xs); color: var(--portal-muted); }
+.colophon .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); border-top: 1px solid var(--portal-border); padding-top: var(--sp-4); }
+.colophon p { margin: 0; }
+.colophon a { color: var(--portal-muted); }
 
-.colophon {
-  margin-top: calc(var(--portal-rhythm) * 2.5);
-  padding-top: var(--portal-rhythm);
-  border-top: 1px solid var(--portal-border);
-  font-size: 0.85rem;
-  color: var(--portal-muted);
-}
-
-.colophon p { margin: 0 0 0.35rem; }
+/* --- small screens --------------------------------------------------------- */
 
 @media (max-width: 34rem) {
-  body { padding-left: 1rem; padding-right: 1rem; }
-  .recent li { grid-template-columns: auto 1fr; }
-  .recent .recent-pages, .recent .recent-book { grid-column: 1 / -1; }
-  .kw-panel { position: static; width: auto; max-height: none; margin: 0 0.6rem 0.6rem; }
+  .wrap { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+  .masthead { padding: var(--sp-3) 0; }
+  .masthead .wrap { padding-bottom: var(--sp-3); gap: var(--sp-2) var(--sp-3); }
+  .masthead .home svg { height: 24px; }
+  .jump { order: 3; flex-basis: 100%; font-size: var(--fs-ui); }
+  .section, .pair { padding: var(--sp-5) 0; }
+  .section + .section > .wrap, .pair + .section > .wrap, .section + .pair > .wrap { padding-top: var(--sp-5); }
+  .kw-panel { position: static; width: auto; max-height: none; margin: var(--sp-2) 0 0; }
   .topic-letter { grid-template-columns: 1.25rem 1fr; }
 }
 
 @media print {
-  .jump, .kw-filters, .kw-panel, .topics-filter, .section--request { display: none !important; }
+  :root, :root[data-theme="dark"] {
+    color-scheme: light;
+    --portal-bg: #FFFFFF; --portal-bg-soft: #F1F3F4; --portal-ink: #202124; --portal-muted: #5F6368;
+    --portal-faint: #9AA0A6; --portal-border: #DADCE0; --portal-accent: #52562F; --portal-accent-hover: #353820;
+    --portal-accent-soft: #9B9569; --portal-wash: #F0EFE8; --portal-warm: #8A5A35;
+  }
+  .masthead { position: static; }
+  .jump, .masthead-tools, .kw-filters, .kw-panel, .filter-input, .section--request { display: none !important; }
+  .result h3 a { background: none; color: var(--portal-accent); }
 }
