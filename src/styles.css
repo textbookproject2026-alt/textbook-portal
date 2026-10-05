@@ -130,7 +130,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; scroll-padding-top: 6rem; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 7.5rem; }
 
 body {
   margin: 0;
@@ -514,7 +514,7 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
 .topic-letter[hidden] { display: none; }
 .topic-letter > h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--portal-faint); line-height: 1.6; }
 .topic-list { list-style: none; margin: 0; padding: 0; }
-.topic { margin: 0 0 0.75rem; scroll-margin-top: 6rem; }
+.topic { margin: 0 0 0.75rem; }
 .topic[hidden] { display: none; }
 .topic:target h4 { color: var(--portal-accent); }
 .topic h4 { margin: 0; font-size: 1rem; font-weight: 600; }

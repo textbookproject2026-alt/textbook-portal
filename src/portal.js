@@ -20,6 +20,11 @@
     /* the page follows the system setting */
   }
   try {
+    enhanceJumps(document.querySelector('.masthead'));
+  } catch (e) {
+    /* jump links use the stylesheet's scroll-padding-top */
+  }
+  try {
     var graph = document.querySelector('.kw-graph');
     if (graph) enhanceGraph(graph);
     enhanceTopics(document.getElementById('topic-filter'), document.querySelector('.topics'));
@@ -232,6 +237,26 @@
       input.focus();
     });
     button.hidden = false;
+  }
+
+  /* Jump links stop below the sticky masthead. Its height changes with the
+     width (103px on a desktop, 147px near 600px where it wraps), so the
+     stylesheet's scroll-padding-top is only a fallback; this keeps it at the
+     masthead's real height plus a gap. */
+  function enhanceJumps(masthead) {
+    if (!masthead) return;
+    var set = function () {
+      document.documentElement.style.scrollPaddingTop = Math.ceil(masthead.getBoundingClientRect().height) + 12 + 'px';
+    };
+    set();
+    if ('ResizeObserver' in window) new ResizeObserver(set).observe(masthead);
+    else window.addEventListener('resize', set);
+    // A page opened at a #fragment was scrolled before the offset was known.
+    if (location.hash.length > 1) {
+      var t = null;
+      try { t = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch (e) {}
+      if (t) t.scrollIntoView();
+    }
   }
 
   /* The topic filter narrows the topic list and the topic index together. */
