@@ -430,3 +430,32 @@ test('header: the logo links home, top left, inline so it takes the text colour;
   assert.match(header, /<h1 class="sr-only">Confused for Now<\/h1>/);
   assert.match(css, /\.sr-only \{[^}]*clip: rect\(0, 0, 0, 0\)/);
 });
+
+test('jump links clear the masthead: portal.js sets scroll-padding-top from its height', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const js = readFileSync(new URL('../src/portal.js', import.meta.url), 'utf8');
+  const masthead = { getBoundingClientRect: () => ({ height: 146.2 }) };
+  const root = { style: {} };
+  let observed = null;
+  const document = {
+    documentElement: root,
+    querySelector: (s) => (s === '.masthead' ? masthead : null),
+    querySelectorAll: () => [],
+    getElementById: () => null,
+  };
+  const window = { ResizeObserver: true };
+  runInNewContext(js, {
+    window, document, location: { hash: '' },
+    ResizeObserver: function (fn) { this.observe = (el) => { observed = [el, fn]; }; },
+  });
+  assert.equal(root.style.scrollPaddingTop, '159px');
+  assert.equal(observed[0], masthead);
+  masthead.getBoundingClientRect = () => ({ height: 103 });
+  observed[1]();
+  assert.equal(root.style.scrollPaddingTop, '115px');
+});
+
+test('the css gives .topic no scroll-margin-top (it would stack on the padding)', () => {
+  assert.doesNotMatch(css, /\.topic\s*\{[^}]*scroll-margin-top/);
+  assert.match(css, /html \{[^}]*scroll-padding-top: 7\.5rem/);
+});
