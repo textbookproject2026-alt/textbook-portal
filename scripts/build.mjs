@@ -130,6 +130,10 @@ export function selectBooks(registry) {
     // (MULTI-BOOK-HOSTING §7), and it is the platform's only real lever over a
     // removed book. Not a warning: it is the correct outcome.
     if (book.status === 'retired') return;
+    // listed: false (the author guide): built and served like any book, but kept
+    // off this page, so out of the catalogue, graph, topics, authors and recent
+    // changes too, which are all drawn from what is listed here.
+    if (book.listed === false) return;
 
     if (!Object.hasOwn(STATUS_LABELS, book.status)) {
       return skipped.push({ where, reason: `status ${JSON.stringify(book.status)} is not one this build knows` });

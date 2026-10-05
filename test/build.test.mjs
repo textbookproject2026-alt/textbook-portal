@@ -53,6 +53,16 @@ test('a retired book is never listed, and is not a warning', () => {
   assert.deepEqual(skipped, []);
 });
 
+test('a listed: false book appears nowhere: not in the list, the graph, topics, authors or recent changes', () => {
+  const guide = { ...liveBook(), slug: 'author-guide', title: 'Author guide', site: { domain: 'guide.confused4now.org' }, listed: false };
+  const { listed, skipped } = selectBooks(registry(liveBook(), guide));
+  assert.deepEqual(listed.map((b) => b.slug), ['social-research-methods']);
+  assert.deepEqual(skipped, []);
+  const catalogs = new Map([['author-guide', { pages: [{ path: '/', title: 'Author guide', tags: ['authors-only-tag'], concept: false, links: [] }], recent: [{ path: '/', date: '2026-10-06' }] }]]);
+  const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
+  assert.ok(!html.includes('guide.confused4now.org') && !html.includes('Author guide') && !html.includes('authors-only-tag'));
+});
+
 test('a book with a null domain is skipped, not rendered as a dead link', () => {
   const noDomain = { ...previewBook(), slug: 'unbound', site: { domain: null } };
   const { listed, skipped } = selectBooks(registry(liveBook(), noDomain));
