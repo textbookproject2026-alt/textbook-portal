@@ -455,6 +455,9 @@ function renderTopics(nodes) {
    ------------------------------------------------------------------------- */
 
 /** https://<fn>/api/suggest-edit -> https://<fn>/api/request-book, or null. */
+/** The author guide (registry book author-guide, listed: false): linked, not listed. */
+export const GUIDE_URL = 'https://guide.confused4now.org';
+
 export function requestEndpointOf(registry) {
   const e = registry?.platform?.suggest_edit_endpoint;
   if (!isHttpsUrl(e) || !/\/api\/suggest-edit\/?$/.test(e)) return null;
@@ -480,6 +483,7 @@ function renderRequest(endpoint, contact) {
     '      <div class="wrap">',
     '      <h2>Publish your textbook here</h2>',
     '      <p>Write an open textbook and we host it: its own address, margin comments, reader suggestions, an in-page editor, and a place on this page and in the key-word graph. Nothing technical is asked of you. Tell us about the book; once we have said yes, it is set up for you and you get an email with its address.</p>',
+    `      <p class="rq-guide"><a href="${GUIDE_URL}">Guide for authors</a>: everything from preparing your Word files to publishing, step by step.</p>`,
     '      <button type="button" class="btn rq-open" hidden>Start the request form</button>',
     `      <form class="request-form" data-endpoint="${escapeHtml(endpoint)}" hidden novalidate>`,
     field('title', 'Title of the book', text('title', 'title', ' required maxlength="200" autocomplete="off"')),
@@ -659,7 +663,7 @@ ${[section.books, pair, section.index, section.publish].filter(Boolean).join('\n
     <footer class="colophon">
       <div class="wrap">
       <p>© ${new Date().getUTCFullYear()} Confused for Now — every book&#39;s licence is stated on the book itself, and its source text is in a public repository.</p>
-      <p>${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
+      <p><a href="${GUIDE_URL}">Guide for authors</a> · ${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
       </div>
     </footer>
   </main>

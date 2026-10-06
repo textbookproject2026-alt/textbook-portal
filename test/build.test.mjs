@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { selectBooks, renderPage, escapeHtml, BuildError, STATUS_LABELS, FONTS_HREF } from '../scripts/build.mjs';
+import { selectBooks, renderPage, escapeHtml, BuildError, STATUS_LABELS, FONTS_HREF, GUIDE_URL } from '../scripts/build.mjs';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -60,7 +60,8 @@ test('a listed: false book appears nowhere: not in the list, the graph, topics, 
   assert.deepEqual(skipped, []);
   const catalogs = new Map([['author-guide', { pages: [{ path: '/', title: 'Author guide', tags: ['authors-only-tag'], concept: false, links: [] }], recent: [{ path: '/', date: '2026-10-06' }] }]]);
   const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
-  assert.ok(!html.includes('guide.confused4now.org') && !html.includes('Author guide') && !html.includes('authors-only-tag'));
+  const withoutGuideLinks = html.replaceAll('<a href="https://guide.confused4now.org">Guide for authors</a>', '');
+  assert.ok(!withoutGuideLinks.includes('guide.confused4now.org') && !html.includes('Author guide') && !html.includes('authors-only-tag'));
 });
 
 test('a book with a null domain is skipped, not rendered as a dead link', () => {
@@ -468,4 +469,11 @@ test('jump links clear the masthead: portal.js sets scroll-padding-top from its 
 test('the css gives .topic no scroll-margin-top (it would stack on the padding)', () => {
   assert.doesNotMatch(css, /\.topic\s*\{[^}]*scroll-margin-top/);
   assert.match(css, /html \{[^}]*scroll-padding-top: 7\.5rem/);
+});
+
+test('"Guide for authors" links the guide in the footer and beside the request form', () => {
+  const html = renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css, requestEndpoint: 'https://fn.example/api/request-book' });
+  const links = html.match(new RegExp(`<a href="${GUIDE_URL}">Guide for authors</a>`, 'g')) ?? [];
+  assert.equal(links.length, 2);
+  assert.ok(html.indexOf('class="rq-guide"') < html.indexOf('class="request-form"'), 'the guide line comes before the form');
 });
