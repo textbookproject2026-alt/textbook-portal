@@ -616,7 +616,7 @@ function renderPrivacy(analytics) {
         ]
       : []),
     '      <h3>Margin comments (Hypothes.is)</h3>',
-    '      <p>The comments in a book&#39;s margin are provided by <a href="https://web.hypothes.is/privacy/">Hypothes.is</a>, loaded from hypothes.is, which may set its own cookies (when you sign in there to comment, for example). To turn them off on a book, choose <strong>Turn comments off</strong> on the first-visit note, or <strong>Aa</strong> › <strong>Public annotations</strong> › off: from the next page on, Hypothes.is isn&#39;t loaded at all.</p>',
+    '      <p>Margin comments are switched off on the books for now, and Hypothes.is isn&#39;t loaded at all. Comments for classes are coming soon. When they come, they will be provided by <a href="https://web.hypothes.is/privacy/">Hypothes.is</a>, loaded from hypothes.is, which may set its own cookies (when you sign in there to comment, for example), and seen only by the members of your class&#39;s group; <strong>Aa</strong> › <strong>Margin comments</strong> › off will stop Hypothes.is loading.</p>',
     '      <h3>GitHub sign-in, for authors and editors</h3>',
     '      <p>Editing a page in the book, and the author site, ask you to sign in with GitHub. The sign-in asks GitHub for nothing but your username, and the GitHub token is thrown away at once; the site keeps a sign-in in this browser tab for at most eight hours, gone sooner when you sign out or close the tab. Proposed edits and suggestions are published on GitHub under the name you give. Reading needs no sign-in at all.</p>',
     '      </div>',

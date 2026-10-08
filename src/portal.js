@@ -325,8 +325,8 @@
     });
   }
 
-  /* The first-visit privacy note, as on every book (quartz-edition-extras privacyNotice),
-     without Turn comments off: comments are a book's, and each book has its own switch.
+  /* The first-visit privacy note, as on every book (quartz-edition-extras privacyNotice).
+     The books load no Hypothes.is until class groups come, so neither does the note.
      Dismissed once for this site. */
   function privacyNote() {
     var KEY = 'tb-privacy-ok';
@@ -336,7 +336,7 @@
     box.setAttribute('role', 'region');
     box.setAttribute('aria-label', 'Privacy');
     var p = document.createElement('p');
-    p.textContent = 'No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. ';
+    p.textContent = 'No tracking cookies. Margin comments are coming soon for classes. ';
     var a = document.createElement('a');
     a.href = '/privacy';
     a.textContent = 'Privacy';
