@@ -81,3 +81,10 @@ jobs:
 
           echo "::error::$url is still serving portal ${now:-<no portal-version>} ten minutes after the push, not $SHA. Check the Cloudflare Pages build log (Workers & Pages → textbook-portal → Deployments): a failed build leaves the previous page live. If the page has no portal-version at all, the apex redirect rule may be catching / or the build predates this workflow."
           exit 1
+
+      # The live page's key-word graph draws its nodes (scripts/check-graph.mjs).
+      - name: The key-word graph on the live page
+        run: |
+          set -euo pipefail
+          domain="$(curl -fsS --max-time 20 https://raw.githubusercontent.com/textbookproject2026-alt/textbook-registry/main/registry.json | jq -er '.platform.portal.domain')"
+          node scripts/check-graph.mjs "https://$domain/"
