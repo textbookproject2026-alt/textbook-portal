@@ -629,3 +629,17 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
   .jump, .masthead-tools, .kw-filters, .kw-panel, .filter-input, .section--request { display: none !important; }
   .result h3 a { background: none; color: var(--portal-accent); }
 }
+
+/* What kind of text (registry type): a quiet pill before any status badge. */
+.badges { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0 0 0.35rem; }
+.badges .badge { margin: 0; }
+.type-badge { display: inline-block; padding: 0.05rem 0.5rem; border: 1px solid var(--portal-border, currentColor); border-radius: 999px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--portal-muted, inherit); }
+.type-filter { display: inline-flex; gap: 0.4rem; align-items: center; margin: 0 0 1rem; font-size: 0.95rem; }
+.type-filter[hidden], .type-empty[hidden] { display: none; }
+.type-empty { color: var(--portal-muted, inherit); }
+
+/* The first-visit privacy note: at the foot of the window, never over the reading. */
+.privacy-note { position: fixed; left: 1rem; bottom: 1rem; z-index: 20; max-width: min(26rem, calc(100vw - 2rem)); box-sizing: border-box; padding: 0.75rem 0.9rem; border: 1px solid var(--portal-border); border-radius: 8px; background: var(--portal-bg); color: var(--portal-ink); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); font-size: 0.9rem; line-height: 1.45; }
+.privacy-note p { margin: 0 0 0.6rem; }
+.privacy-note .privacy-actions { display: flex; justify-content: flex-end; }
+@media print { .privacy-note { display: none; } }

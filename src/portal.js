@@ -39,6 +39,16 @@
     /* the no-JavaScript note stands */
   }
   try {
+    enhanceTypes(document.querySelector('[data-type-filter]'));
+  } catch (e) {
+    /* every card stays shown */
+  }
+  try {
+    privacyNote();
+  } catch (e) {
+    /* the Privacy section and the footer link stand */
+  }
+  try {
     printOpen(document.querySelectorAll('main details'));
   } catch (e) {
     /* the fold-outs print closed */
@@ -294,6 +304,56 @@
      input's, so each can be removed (a file input can only be replaced whole).
      Files go up in 2.5 MB parts, one request each, because the endpoint's host
      refuses bodies over 4.5 MB; the request itself then names the parts. */
+  /* The type filter above the cards: Everything, or one kind; a kind with no cards says so. */
+  function enhanceTypes(select) {
+    if (!select) return;
+    var label = select.closest('.type-filter');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.result-list > .result'));
+    var empty = document.querySelector('.type-empty');
+    label.hidden = false;
+    select.addEventListener('change', function () {
+      var want = select.value;
+      var shown = 0;
+      cards.forEach(function (c) {
+        c.hidden = Boolean(want) && c.getAttribute('data-type') !== want;
+        if (!c.hidden) shown++;
+      });
+      if (empty) empty.hidden = shown > 0;
+    });
+  }
+
+  /* The first-visit privacy note, as on every book (quartz-edition-extras privacyNotice),
+     without Turn comments off: comments are a book's, and each book has its own switch.
+     Dismissed once for this site. */
+  function privacyNote() {
+    var KEY = 'tb-privacy-ok';
+    try { if (localStorage.getItem(KEY)) return; } catch (e) {}
+    var box = document.createElement('div');
+    box.className = 'privacy-note';
+    box.setAttribute('role', 'region');
+    box.setAttribute('aria-label', 'Privacy');
+    var p = document.createElement('p');
+    p.textContent = 'No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. ';
+    var a = document.createElement('a');
+    a.href = '#privacy';
+    a.textContent = 'Privacy';
+    p.appendChild(a);
+    var row = document.createElement('div');
+    row.className = 'privacy-actions';
+    var ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'btn';
+    ok.textContent = 'OK';
+    ok.addEventListener('click', function () {
+      try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      box.remove();
+    });
+    row.appendChild(ok);
+    box.appendChild(p);
+    box.appendChild(row);
+    document.body.appendChild(box);
+  }
+
   function enhanceRequest(form) {
     var MAX = 20 * 1024 * 1024;
     var MAX_TEXT = '20 MB';
@@ -441,6 +501,7 @@
             title: el.title.value, authors: el.authors.value, email: el.email.value,
             summary: el.summary.value, topic: el.topic.value, manuscriptLink: el.manuscriptLink.value,
             github: el.github.value, notes: el.notes.value, agreeLicence: el.agreeLicence.checked,
+            type: form.querySelector('#rq-type') ? form.querySelector('#rq-type').value : 'book',
             website: el.website.value, files: files,
           });
         })
