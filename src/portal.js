@@ -14,6 +14,9 @@
  */
 (function () {
   'use strict';
+  // The privacy statement was a section of this page until 9 Oct 2026: old links
+  // to /#privacy go to its own page.
+  if (location.hash === '#privacy') location.replace('/privacy');
   try {
     enhanceTheme(document.querySelector('.theme-toggle'));
   } catch (e) {
@@ -335,7 +338,7 @@
     var p = document.createElement('p');
     p.textContent = 'No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. ';
     var a = document.createElement('a');
-    a.href = '#privacy';
+    a.href = '/privacy';
     a.textContent = 'Privacy';
     p.appendChild(a);
     var row = document.createElement('div');
