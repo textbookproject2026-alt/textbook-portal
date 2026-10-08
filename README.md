@@ -168,19 +168,30 @@ link, citation and bookmark made before then still points at it. With a portal a
 the apex those links resolve to a page that exists and looks fine but is not what
 was asked for — which is worse than a 404 (`PORTAL-CUTOVER.md` §7b.1).
 
-So the zone carries a **Cloudflare Redirect Rule**: any path on the apex other than
-the portal's own two is a 301 to the same path on
-`social-research-methods.confused4now.org`. It runs at the edge, before Pages, and
-costs nothing to keep.
+So the zone carries a **Cloudflare Redirect Rule** (Rules › Redirect Rules,
+*Book one's old links*). Since 9 Oct 2026 it catches **only book one's own paths**,
+and sends each to the same path on `social-research-methods.confused4now.org`
+(retired; it answers every path with its retirement notice):
 
-**This is why the portal is exactly two files.** Every URL the portal serves needs an
-exemption in that rule, so the build writes `/` and `/version.txt` and nothing else:
-the stylesheet and script are inlined and the favicon is a `data:` URI. *If you ever add a file
-to `public/`, add it to the rule*, or the deploy will 301 away and the portal will
-look broken in a way the build log won't explain.
+```
+(http.host eq "confused4now.org" and (
+  starts_with(http.request.uri.path, "/chapters") or
+  starts_with(http.request.uri.path, "/assets/") or
+  starts_with(http.request.uri.path, "/community") or
+  starts_with(http.request.uri.path, "/tags/") or
+  starts_with(http.request.uri.path, "/static/") or
+  http.request.uri.path in {"/glossary" "/glossary.md" "/index" "/index.md" "/how-to-comment"}))
+```
 
-`/robots.txt` is not exempt: it 301s to the book's. That is a deliberate, small
-trade for keeping the exemption list at two. Add a third if it ever matters.
+Dynamic, `concat("https://social-research-methods.confused4now.org", http.request.uri.path)`,
+301, query string kept. Those are book one's top-level folders and pages (its repo,
+`textbookproject2026-alt/textbook`) and the pages Quartz added. Everything else on
+the apex is the portal's: `/`, `/version.txt` and `/privacy` (the privacy statement,
+`privacy.html`, linked from every footer and first-visit note). A new portal file
+needs no rule change, unless its path starts like one of book one's.
+
+Until 9 Oct the rule caught every path but `/` and `/version.txt`, which is why the
+portal inlines its stylesheet and script and its favicon is a `data:` URI.
 
 ## What has to be configured by hand
 

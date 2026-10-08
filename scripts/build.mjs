@@ -111,14 +111,13 @@ export const TYPE_LABELS = { book: 'Book', paper: 'Paper', report: 'Report', art
 const typeOf = (book) => (Object.hasOwn(TYPE_LABELS, book?.type) ? book.type : 'book');
 
 /**
- * The platform's Plausible dashboard for the statistics links: the shared link
- * (analytics.plausible.shared_link, pasted once), else the public dashboard when it
- * is public, else null. quartz-book's statsDashboard is the same rule.
+ * The platform's public Plausible dashboard for the statistics links (public for good,
+ * decided 9 Oct 2026), or null when it isn't public. quartz-book's statsDashboard is
+ * the same rule.
  */
 export function statsOf(registry) {
   const p = registry?.platform?.analytics?.plausible;
   if (!p) return null;
-  if (isHttpsUrl(p.shared_link)) return p.shared_link;
   return p.dashboard_public === true && isHostname(p.site) ? `https://plausible.io/${p.site}` : null;
 }
 
@@ -625,6 +624,50 @@ function renderPrivacy(analytics) {
   ].join('\n');
 }
 
+/**
+ * /privacy: the privacy statement as its own page, in the portal's masthead and footer.
+ * Served once the apex redirect rule no longer catches every path (README, "The apex
+ * redirect"); Cloudflare Pages serves privacy.html at /privacy.
+ */
+export function renderPrivacyPage({ css, analytics = null, stats = null, portalSha = 'local' }) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy — Confused for Now</title>
+<meta name="description" content="What Confused for Now stores, and how to turn each part off.">
+<link rel="icon" href="data:,">
+<meta name="portal-version" content="${escapeHtml(portalSha)}">
+${THEME_SCRIPT}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="${FONTS_HREF}">
+<style>
+${css.trim()}
+</style>
+${renderAnalytics(analytics)}</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div class="wrap">
+      <a class="home" href="/" aria-label="Confused for Now (home)">${LOGO_SVG}</a>
+      </div>
+    </header>
+
+${renderPrivacy(analytics)}
+
+    <footer class="colophon">
+      <div class="wrap">
+      <p><a href="/">Confused for Now</a> · <a href="${GUIDE_URL}">Guide for authors</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''}</p>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
+`;
+}
+
 export function renderPage({ books, sha, portalSha = 'local', css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null, stats = null }) {
   const live = books.filter((b) => b.status === 'live');
   const kw = keywords(books, catalogs);
@@ -804,12 +847,13 @@ async function main() {
   // polls this until it matches the merge SHA, exactly as deploy.yml polls the
   // function's header. No trailing newline: the poller compares the whole body.
   writeFileSync(`${OUT_DIR}version.txt`, sha);
+  writeFileSync(`${OUT_DIR}privacy.html`, renderPrivacyPage({ css, analytics: analyticsOf(registry), stats: statsOf(registry), portalSha }));
   const copied = copyStatic();
 
   console.log(
     `build: ${listed.length} book(s) listed, ${catalogs.size} with a catalog` +
       (skipped.length ? `, ${skipped.length} skipped` : '') +
-      ` -> public/index.html, public/version.txt` +
+      ` -> public/index.html, public/version.txt, public/privacy.html` +
       (copied.length ? `, ${copied.join(', ')}` : ''),
   );
 }
