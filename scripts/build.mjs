@@ -757,12 +757,12 @@ ${graph ?? ''}
       </div>
     </section>
 
-${[section.books, pair, section.index, section.publish, renderPrivacy(analytics)].filter(Boolean).join('\n\n')}
+${[section.books, pair, section.index, section.publish].filter(Boolean).join('\n\n')}
 
     <footer class="colophon">
       <div class="wrap">
       <p>© ${new Date().getUTCFullYear()} Confused for Now — every book&#39;s licence is stated on the book itself, and its source text is in a public repository.</p>
-      <p><a href="${GUIDE_URL}">Guide for authors</a> · <a href="#${PRIVACY_ID}">Privacy</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''} · ${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
+      <p><a href="${GUIDE_URL}">Guide for authors</a> · <a href="/privacy">Privacy</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''} · ${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
       </div>
     </footer>
   </main>

@@ -505,11 +505,14 @@ test('statistics: the public dashboard; Book statistics on live cards, Platform 
   assert.doesNotMatch(renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css }), /statistics/);
 });
 
-test('privacy: a section saying what is stored and how to turn it off, linked from the footer', () => {
+test('privacy: its own page, linked from the footer; not a section of the landing page any more', () => {
   const html = renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css });
-  assert.match(html, /<section class="section section--privacy" id="privacy"/);
-  for (const h of ['Reader settings, in this browser', 'Margin comments (Hypothes.is)', 'GitHub sign-in, for authors and editors']) assert.ok(html.includes(h), h);
-  assert.match(html, /<footer[\s\S]*<a href="#privacy">Privacy<\/a>/);
+  assert.doesNotMatch(html, /section--privacy/);
+  assert.match(html, /<footer[\s\S]*<a href="\/privacy">Privacy<\/a>/);
+  const page = renderPrivacyPage({ css });
+  for (const h of ['Reader settings, in this browser', 'Margin comments (Hypothes.is)', 'GitHub sign-in, for authors and editors']) assert.ok(page.includes(h), h);
+  const js = readFileSync(new URL('../src/portal.js', import.meta.url), 'utf8');
+  assert.match(js, /location\.hash === '#privacy'\) location\.replace\('\/privacy'\)/);
 });
 
 test('the request form asks what kind of text it is', () => {
