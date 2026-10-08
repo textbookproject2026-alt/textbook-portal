@@ -26,3 +26,6 @@ jobs:
           node-version: "22"
       - run: npm test
       - run: npm run build
+      # The key-word graph draws its nodes (scripts/check-graph.mjs): fails if
+      # there were key words to draw and none was drawn.
+      - run: node scripts/check-graph.mjs public/index.html

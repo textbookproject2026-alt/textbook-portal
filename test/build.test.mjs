@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { selectBooks, renderPage, escapeHtml, BuildError, STATUS_LABELS, FONTS_HREF, GUIDE_URL } from '../scripts/build.mjs';
+import { selectBooks, renderPage, escapeHtml, BuildError, STATUS_LABELS, FONTS_HREF, GUIDE_URL, graphSummary } from '../scripts/build.mjs';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -527,4 +527,92 @@ test('/privacy: the statement as its own page, with the portal masthead and the 
   assert.match(html, /<section class="section section--privacy" id="privacy"/);
   assert.match(html, /<a class="home" href="\/"/);
   assert.match(html, /<a href="https:\/\/plausible\.io\/confused4now\.org">Platform statistics<\/a>/);
+});
+
+/* ---- The graph across many books: one bad book never costs the others ---- */
+
+const bookAt = (slug, status = 'live') => ({
+  ...builderBook(),
+  slug,
+  title: `Book ${slug}`,
+  status,
+  site: { domain: `${slug}.confused4now.org`, host: { kind: 'static', provider: 'cloudflare-pages', project: slug, builder: 'quartz-book' } },
+});
+const catalogOf = (slug, pages) => readCatalog({ ...catalog(), slug, pages, recent: [] }, slug);
+const tagged = (slug) =>
+  catalogOf(slug, [
+    { path: '/a', source: 'a.md', title: 'A', tags: ['agency', 'structure'], concept: false, authors: [], topic: 'Sociology', links: [] },
+    { path: '/b', source: 'b.md', title: 'B', tags: ['structure'], concept: false, authors: [], links: [] },
+  ]);
+const nodesIn = (html) => (html.match(/<a class="kw-node[ "]/g) ?? []).length;
+
+test('the graph: a retired book and a book without a catalog are skipped; the rest are drawn, with their filters', () => {
+  const { listed } = selectBooks(registry(bookAt('one'), bookAt('two'), bookAt('gone', 'retired'), bookAt('no-catalog')));
+  const catalogs = new Map([
+    ['one', tagged('one')],
+    ['two', catalogOf('two', [{ path: '/c/emergence', source: 'c/Emergence.md', title: 'Emergence', tags: ['ontology'], concept: true, authors: ['T. Wo'], links: [] }])],
+    ['gone', tagged('gone')],
+  ]);
+  const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
+  assert.equal(nodesIn(html), 4, 'agency, structure, ontology, emergence');
+  assert.match(html, /<meta name="portal-graph" content="keywords=4 nodes=4">/);
+  assert.match(html, /data-filter="topic"/);
+  assert.match(html, /data-filter="author"/);
+  assert.match(html, /<select data-filter="book">.*Book one.*Book two/s);
+  assert.doesNotMatch(html.split('class="kw-graph"')[1].split('</svg>')[0], /gone|no-catalog/);
+});
+
+test('a book whose catalog breaks the key words is skipped whole and logged; the other books keep theirs', () => {
+  const { listed } = selectBooks(registry(bookAt('one'), bookAt('broken')));
+  const broken = tagged('broken');
+  Object.defineProperty(broken, 'pages', { get() { throw new Error('bad pages'); } });
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(m);
+  let kw;
+  try {
+    kw = keywords(listed, new Map([['one', tagged('one')], ['broken', broken]]));
+  } finally {
+    console.warn = warn;
+  }
+  assert.deepEqual(warned, ['build: WARNING broken: key words not used — bad pages']);
+  assert.deepEqual(kw.nodes.map((n) => [n.label, n.bookSlugs]), [['agency', ['one']], ['structure', ['one']]]);
+});
+
+test('fewer than two key words: no graph, and the page and the build log say why', () => {
+  const { listed } = selectBooks(registry(bookAt('one'), bookAt('two')));
+  const catalogs = new Map([
+    ['one', catalogOf('one', [{ path: '/x', source: 'x.md', title: 'X', tags: [], concept: false, authors: [], links: [] }])],
+    ['two', catalogOf('two', [{ path: '/c/e', source: 'c/E.md', title: 'Example concept', tags: [], concept: true, authors: [], links: [] }])],
+  ]);
+  const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
+  assert.equal(nodesIn(html), 0);
+  assert.match(html, /<meta name="portal-graph" content="keywords=1 nodes=0">/);
+  assert.equal(
+    graphSummary(listed, catalogs),
+    'WARNING no key-word graph: the live books have 1 key word between them (2 needed: tags, or concept pages) (one 0, two 1)',
+  );
+});
+
+test('scripts/check-graph.mjs: fails on a graph that draws nothing it should, warns when there is nothing to draw', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(`${tmpdir()}/graph-`);
+  const run = (page) => {
+    writeFileSync(`${dir}/i.html`, page);
+    try {
+      return { code: 0, out: execFileSync('node', [new URL('../scripts/check-graph.mjs', import.meta.url).pathname, `${dir}/i.html`], { encoding: 'utf8' }) };
+    } catch (e) {
+      return { code: e.status, out: e.stdout };
+    }
+  };
+  const node = '<a class="kw-node kw-node--tag" href="#x">';
+  assert.equal(run(`<meta name="portal-graph" content="keywords=3 nodes=2">${node}${node}`).code, 0);
+  assert.match(run('<meta name="portal-graph" content="keywords=3 nodes=0">').out, /::error::.*drew no nodes/);
+  assert.match(run(`<meta name="portal-graph" content="keywords=3 nodes=2">${node}`).out, /::error::.*says 2 graph nodes but draws 1/);
+  assert.equal(run('<p>no meta</p>').code, 1);
+  const none = run('<meta name="portal-graph" content="keywords=1 nodes=0">');
+  assert.equal(none.code, 0);
+  assert.match(none.out, /::warning::.*1 key word between them/);
 });

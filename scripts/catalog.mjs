@@ -177,25 +177,35 @@ export function keywords(books, catalogs) {
   };
 
   for (const book of readerBooks(books, catalogs)) {
-    const { pages, authors: bookAuthors } = catalogs.get(book.slug);
-    // A page's authors: its own, else its book's, else the book's maintainer,
-    // as in authors() below.
-    const fallback = bookAuthors.length ? bookAuthors : book.maintainer ? [book.maintainer] : [];
-    const authorsOf = (page) => (page.authors.length ? page.authors : fallback);
-    const byPath = new Map(pages.map((p) => [p.path, p]));
-    for (const page of pages) {
-      for (const tag of page.tags) {
-        if (tag === 'concept') continue; // a marker, not a subject
-        note(keywordKey(tag), tag, 'tag', book, page, authorsOf);
+    // Each book's key words are gathered first and only then added, so a book
+    // whose catalog trips this up is skipped whole (and logged), never half
+    // counted, and never costs the other books their key words.
+    const found = [];
+    try {
+      const { pages, authors: bookAuthors } = catalogs.get(book.slug);
+      // A page's authors: its own, else its book's, else the book's maintainer,
+      // as in authors() below.
+      const fallback = bookAuthors.length ? bookAuthors : book.maintainer ? [book.maintainer] : [];
+      const authorsOf = (page) => (page.authors.length ? page.authors : fallback);
+      const byPath = new Map(pages.map((p) => [p.path, p]));
+      for (const page of pages) {
+        for (const tag of page.tags) {
+          if (tag === 'concept') continue; // a marker, not a subject
+          found.push([keywordKey(tag), tag, 'tag', book, page, authorsOf]);
+        }
+        if (page.concept) found.push([keywordKey(page.title), page.title, 'concept', book, page, authorsOf]);
+        // A book's home page links to everything; that says nothing about topics.
+        if (page.path === '/') continue;
+        for (const link of page.links) {
+          const target = byPath.get(link);
+          if (target?.concept) found.push([keywordKey(target.title), target.title, 'concept', book, page, authorsOf]);
+        }
       }
-      if (page.concept) note(keywordKey(page.title), page.title, 'concept', book, page, authorsOf);
-      // A book's home page links to everything; that says nothing about topics.
-      if (page.path === '/') continue;
-      for (const link of page.links) {
-        const target = byPath.get(link);
-        if (target?.concept) note(keywordKey(target.title), target.title, 'concept', book, page, authorsOf);
-      }
+    } catch (err) {
+      console.warn(`build: WARNING ${book.slug}: key words not used — ${err.message}`);
+      continue;
     }
+    for (const args of found) note(...args);
   }
 
   const edges = new Map();
