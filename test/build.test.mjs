@@ -616,3 +616,13 @@ test('scripts/check-graph.mjs: fails on a graph that draws nothing it should, wa
   assert.equal(none.code, 0);
   assert.match(none.out, /::warning::.*1 key word between them/);
 });
+
+test('the first-visit note and /privacy match the books: no Hypothes.is until comments for classes come', async () => {
+  const { renderPrivacyPage } = await import('../scripts/build.mjs');
+  const js = readFileSync(new URL('../src/portal.js', import.meta.url), 'utf8');
+  assert.match(js, /'No tracking cookies\. Margin comments are coming soon for classes\. '/);
+  assert.doesNotMatch(js, /provided by Hypothes\.is/);
+  const page = renderPrivacyPage({ css, analytics: null, stats: null, portalSha: 'local' });
+  assert.match(page, /Margin comments are switched off on the books for now, and Hypothes\.is isn&#39;t loaded at all\. Comments for classes are coming soon\./);
+  assert.doesNotMatch(page, /Public annotations|Turn comments off/);
+});
