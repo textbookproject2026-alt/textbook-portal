@@ -492,11 +492,10 @@ test('each card says what kind of text it is; absent or unknown is a book; the f
   assert.match(html, /<label class="type-filter" hidden>/);
 });
 
-test('statistics: the shared link, else the public dashboard; Book statistics on live cards, Platform statistics in the footer', () => {
+test('statistics: the public dashboard; Book statistics on live cards, Platform statistics in the footer', () => {
   const p = { script_src: 'https://plausible.io/js/pa-x.js', site: 'confused4now.org', dashboard_public: true };
   const reg = (plausible) => ({ platform: { analytics: { plausible } } });
   assert.equal(statsOf(reg(p)), 'https://plausible.io/confused4now.org');
-  assert.equal(statsOf(reg({ ...p, shared_link: 'https://plausible.io/share/confused4now.org?auth=k' })), 'https://plausible.io/share/confused4now.org?auth=k');
   assert.equal(statsOf(reg({ ...p, dashboard_public: false })), null);
   assert.equal(statsFor('https://plausible.io/share/x?auth=k', 'b.example'), 'https://plausible.io/share/x?auth=k&f=is,hostname,b.example');
   const stats = 'https://plausible.io/confused4now.org';
@@ -516,4 +515,13 @@ test('privacy: a section saying what is stored and how to turn it off, linked fr
 test('the request form asks what kind of text it is', () => {
   const html = renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css, requestEndpoint: 'https://fn.vercel.app/api/request-book' });
   assert.match(html, /<select id="rq-type" name="type"><option value="book">Book<\/option><option value="paper">Paper<\/option><option value="report">Report<\/option><option value="article">Article<\/option><\/select>/);
+});
+
+import { renderPrivacyPage } from '../scripts/build.mjs';
+test('/privacy: the statement as its own page, with the portal masthead and the statistics link', () => {
+  const html = renderPrivacyPage({ css, stats: 'https://plausible.io/confused4now.org' });
+  assert.match(html, /<title>Privacy — Confused for Now<\/title>/);
+  assert.match(html, /<section class="section section--privacy" id="privacy"/);
+  assert.match(html, /<a class="home" href="\/"/);
+  assert.match(html, /<a href="https:\/\/plausible\.io\/confused4now\.org">Platform statistics<\/a>/);
 });
