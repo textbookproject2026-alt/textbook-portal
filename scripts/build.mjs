@@ -106,6 +106,25 @@ export const STATUS_LABELS = {
   preview: 'Preview — a demonstration, not for readers',
 };
 
+/** What kind of text (registry books[].type), and its badge. Absent or unknown: a book. */
+export const TYPE_LABELS = { book: 'Book', paper: 'Paper', report: 'Report', article: 'Article' };
+const typeOf = (book) => (Object.hasOwn(TYPE_LABELS, book?.type) ? book.type : 'book');
+
+/**
+ * The platform's Plausible dashboard for the statistics links: the shared link
+ * (analytics.plausible.shared_link, pasted once), else the public dashboard when it
+ * is public, else null. quartz-book's statsDashboard is the same rule.
+ */
+export function statsOf(registry) {
+  const p = registry?.platform?.analytics?.plausible;
+  if (!p) return null;
+  if (isHttpsUrl(p.shared_link)) return p.shared_link;
+  return p.dashboard_public === true && isHostname(p.site) ? `https://plausible.io/${p.site}` : null;
+}
+
+/** The dashboard filtered to one hostname (a book's), as its Book statistics. */
+export const statsFor = (base, host) => `${base}${base.includes('?') ? '&' : '?'}f=is,hostname,${encodeURIComponent(host)}`;
+
 export function selectBooks(registry) {
   if (registry === null || typeof registry !== 'object') throw new BuildError('the registry is not an object');
   if (registry.schema_version !== SCHEMA_VERSION) {
@@ -147,6 +166,7 @@ export function selectBooks(registry) {
     listed.push({
       slug,
       status: book.status,
+      type: typeOf(book),
       title: book.title.trim(),
       summary: book.summary.trim(),
       domain: book.site.domain,
@@ -215,7 +235,7 @@ function bookAuthors(book, catalogs) {
 
 /* One book, in the shape of a search result: the title, a line in brown naming
    the authors and the address, the description, then the counts. */
-function renderBook(book, catalogs) {
+function renderBook(book, catalogs, statsBase = null) {
   const stats = bookStats(book, catalogs);
   const label = book.sandbox ? SANDBOX_LABEL : STATUS_LABELS[book.status];
   const who = bookAuthors(book, catalogs).map(escapeHtml).join(', ');
@@ -225,11 +245,13 @@ function renderBook(book, catalogs) {
     stats?.concepts ? plural(stats.concepts, 'concept page') : null,
     stats?.updated ? `Updated ${escapeHtml(formatDate(stats.updated))}` : null,
     book.templatePreview ? `<a href="${escapeHtml(book.templatePreview)}">Department edition template</a>` : null,
+    // Plausible counts live books only, on their own address.
+    statsBase && book.status === 'live' ? `<a href="${escapeHtml(statsFor(statsBase, book.domain))}">Book statistics</a>` : null,
   ].filter(Boolean);
 
   return [
-    '        <li class="result">',
-    label ? `          <p class="badge">${escapeHtml(label)}</p>` : null,
+    `        <li class="result" data-type="${escapeHtml(book.type ?? 'book')}">`,
+    `          <p class="badges"><span class="type-badge">${escapeHtml(TYPE_LABELS[book.type] ?? 'Book')}</span>${label ? `<span class="badge">${escapeHtml(label)}</span>` : ''}</p>`,
     `          <h3><a href="${escapeHtml(book.url)}">${escapeHtml(book.title)}</a></h3>`,
     `          <div class="result-meta">${meta}</div>`,
     `          <p>${escapeHtml(book.summary)}</p>`,
@@ -240,15 +262,20 @@ function renderBook(book, catalogs) {
     .join('\n');
 }
 
-function renderBooks(books, catalogs) {
+function renderBooks(books, catalogs, stats = null) {
   if (books.length === 0) return null;
+  // The type filter: every kind the platform takes, so a reader can see there are none
+  // of one yet. portal.js shows it and hides the cards of other kinds.
+  const options = Object.entries(TYPE_LABELS).map(([v, l]) => `<option value="${v}">${l}s</option>`).join('');
   return [
     '    <section class="section section--live" id="books">',
     '      <div class="wrap">',
     `      <h2>${books.length === 1 ? 'The book' : 'The books'}</h2>`,
+    `      <label class="type-filter" hidden>Show <select data-type-filter><option value="">Everything</option>${options}</select></label>`,
     '      <ul class="result-list">',
-    books.map((b) => renderBook(b, catalogs)).join('\n'),
+    books.map((b) => renderBook(b, catalogs, stats)).join('\n'),
     '      </ul>',
+    '      <p class="type-empty" hidden>Nothing of this kind on the platform yet.</p>',
     '      </div>',
     '    </section>',
   ].join('\n');
@@ -486,6 +513,7 @@ function renderRequest(endpoint, contact) {
     `      <p class="rq-guide"><a href="${GUIDE_URL}">Guide for authors</a>: everything from preparing your Word files to publishing, step by step.</p>`,
     '      <button type="button" class="btn rq-open" hidden>Start the request form</button>',
     `      <form class="request-form" data-endpoint="${escapeHtml(endpoint)}" hidden novalidate>`,
+    field('type', 'What kind of text is it?', `<select id="rq-type" name="type">${Object.entries(TYPE_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>`, 'A book, a paper, a report or an article. It is shown beside the title.'),
     field('title', 'Title of the book', text('title', 'title', ' required maxlength="200" autocomplete="off"')),
     field('authors', 'Author or authors', text('authors', 'authors', ' required maxlength="300" autocomplete="name"'), 'Separate several names with commas.'),
     field('email', 'Your email address', '<input id="rq-email" name="email" type="email" required maxlength="254" autocomplete="email">', 'Only we see it. It is never published.'),
@@ -569,7 +597,35 @@ const ICON_THEME =
   '<svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
   '<svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
-export function renderPage({ books, sha, portalSha = 'local', css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null }) {
+/* Privacy: what is stored, by whom, and how to turn each off. The apex serves one page
+   (README, "The apex redirect"), so this is a section of it, linked as /#privacy from
+   every footer (quartz-book privacyUrl, the author site). */
+export const PRIVACY_ID = 'privacy';
+function renderPrivacy(analytics) {
+  return [
+    `    <section class="section section--privacy" id="${PRIVACY_ID}" aria-labelledby="privacy-h">`,
+    '      <div class="wrap prose">',
+    '      <h2 id="privacy-h">Privacy</h2>',
+    '      <p>No tracking cookies, on this page or on any book. Here is everything that is stored, and how to turn each part off.</p>',
+    '      <h3>Reader settings, in this browser</h3>',
+    '      <p>Each site remembers your choices in your own browser (local storage): light or dark, text size and width, paragraph numbers, whether margin comments are on, and that you have seen the privacy note. Nothing of it is sent anywhere. To clear it, clear this site&#39;s data in your browser&#39;s settings; the book&#39;s <strong>Aa</strong> menu changes each setting.</p>',
+    // Counting is only described where there is any (platform.analytics).
+    ...(analytics
+      ? [
+          '      <h3>Visitor counts (Plausible)</h3>',
+          '      <p>Pages on the live sites are counted with <a href="https://plausible.io/data-policy">Plausible Analytics</a>, which sets no cookies and stores nothing that identifies you: only counts of visits, pages, referring sites, countries and device types. Drafts and previews are never counted. The counts are public (<strong>Platform statistics</strong> below, <strong>Book statistics</strong> on each book). To stop being counted, block plausible.io with a content blocker.</p>',
+        ]
+      : []),
+    '      <h3>Margin comments (Hypothes.is)</h3>',
+    '      <p>The comments in a book&#39;s margin are provided by <a href="https://web.hypothes.is/privacy/">Hypothes.is</a>, loaded from hypothes.is, which may set its own cookies (when you sign in there to comment, for example). To turn them off on a book, choose <strong>Turn comments off</strong> on the first-visit note, or <strong>Aa</strong> › <strong>Public annotations</strong> › off: from the next page on, Hypothes.is isn&#39;t loaded at all.</p>',
+    '      <h3>GitHub sign-in, for authors and editors</h3>',
+    '      <p>Editing a page in the book, and the author site, ask you to sign in with GitHub. The sign-in asks GitHub for nothing but your username, and the GitHub token is thrown away at once; the site keeps a sign-in in this browser tab for at most eight hours, gone sooner when you sign out or close the tab. Proposed edits and suggestions are published on GitHub under the name you give. Reading needs no sign-in at all.</p>',
+    '      </div>',
+    '    </section>',
+  ].join('\n');
+}
+
+export function renderPage({ books, sha, portalSha = 'local', css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null, stats = null }) {
   const live = books.filter((b) => b.status === 'live');
   const kw = keywords(books, catalogs);
 
@@ -577,7 +633,7 @@ export function renderPage({ books, sha, portalSha = 'local', css, js = '', cata
   const recent = renderRecent(recentChanges(books, catalogs));
   const browse = renderBrowse(kw.nodes, authors(books, catalogs));
   const section = {
-    books: renderBooks(live, catalogs),
+    books: renderBooks(live, catalogs, stats),
     index: renderTopics(kw.nodes),
     publish: renderRequest(requestEndpoint, contact),
   };
@@ -658,12 +714,12 @@ ${graph ?? ''}
       </div>
     </section>
 
-${[section.books, pair, section.index, section.publish].filter(Boolean).join('\n\n')}
+${[section.books, pair, section.index, section.publish, renderPrivacy(analytics)].filter(Boolean).join('\n\n')}
 
     <footer class="colophon">
       <div class="wrap">
       <p>© ${new Date().getUTCFullYear()} Confused for Now — every book&#39;s licence is stated on the book itself, and its source text is in a public repository.</p>
-      <p><a href="${GUIDE_URL}">Guide for authors</a> · ${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
+      <p><a href="${GUIDE_URL}">Guide for authors</a> · <a href="#${PRIVACY_ID}">Privacy</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''} · ${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
       </div>
     </footer>
   </main>
@@ -739,7 +795,7 @@ async function main() {
   // deploy hook). version.txt is the REGISTRY's commit, so it can't tell a stale
   // portal from a current one; .github/workflows/deployed.yml polls this instead.
   const portalSha = /^[0-9a-f]{40}$/.test(process.env.CF_PAGES_COMMIT_SHA ?? '') ? process.env.CF_PAGES_COMMIT_SHA : 'local';
-  const html = renderPage({ books: listed, sha, portalSha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact, analytics: analyticsOf(registry) });
+  const html = renderPage({ books: listed, sha, portalSha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact, analytics: analyticsOf(registry), stats: statsOf(registry) });
 
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });

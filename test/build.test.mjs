@@ -477,3 +477,43 @@ test('"Guide for authors" links the guide in the footer and beside the request f
   assert.equal(links.length, 2);
   assert.ok(html.indexOf('class="rq-guide"') < html.indexOf('class="request-form"'), 'the guide line comes before the form');
 });
+
+// --- 9 Oct day run: type, statistics, privacy ------------------------------------------
+import { statsOf, statsFor, TYPE_LABELS } from '../scripts/build.mjs';
+
+test('each card says what kind of text it is; absent or unknown is a book; the filter offers every kind', () => {
+  const paper = { ...liveBook(), slug: 'a-paper', type: 'paper', site: { domain: 'a-paper.confused4now.org' } };
+  const odd = { ...liveBook(), slug: 'odd', type: 'thesis', site: { domain: 'odd.confused4now.org' } };
+  const html = renderPage({ books: selectBooks(registry(liveBook(), paper, odd)).listed, sha: 'a'.repeat(40), css });
+  assert.match(html, /<li class="result" data-type="book">\s*<p class="badges"><span class="type-badge">Book<\/span>/);
+  assert.match(html, /<li class="result" data-type="paper">\s*<p class="badges"><span class="type-badge">Paper<\/span>/);
+  assert.equal((html.match(/data-type="book"/g) ?? []).length, 2, 'an unknown type is shown as a book');
+  for (const l of Object.values(TYPE_LABELS)) assert.match(html, new RegExp(`<option value="[a-z]+">${l}s</option>`));
+  assert.match(html, /<label class="type-filter" hidden>/);
+});
+
+test('statistics: the shared link, else the public dashboard; Book statistics on live cards, Platform statistics in the footer', () => {
+  const p = { script_src: 'https://plausible.io/js/pa-x.js', site: 'confused4now.org', dashboard_public: true };
+  const reg = (plausible) => ({ platform: { analytics: { plausible } } });
+  assert.equal(statsOf(reg(p)), 'https://plausible.io/confused4now.org');
+  assert.equal(statsOf(reg({ ...p, shared_link: 'https://plausible.io/share/confused4now.org?auth=k' })), 'https://plausible.io/share/confused4now.org?auth=k');
+  assert.equal(statsOf(reg({ ...p, dashboard_public: false })), null);
+  assert.equal(statsFor('https://plausible.io/share/x?auth=k', 'b.example'), 'https://plausible.io/share/x?auth=k&f=is,hostname,b.example');
+  const stats = 'https://plausible.io/confused4now.org';
+  const html = renderPage({ books: selectBooks(registry(liveBook(), previewBook())).listed, sha: 'a'.repeat(40), css, stats });
+  assert.match(html, /<a href="https:\/\/plausible\.io\/confused4now\.org\?f=is,hostname,social-research-methods\.confused4now\.org">Book statistics<\/a>/);
+  assert.match(html, /<footer[\s\S]*<a href="https:\/\/plausible\.io\/confused4now\.org">Platform statistics<\/a>/);
+  assert.doesNotMatch(renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css }), /statistics/);
+});
+
+test('privacy: a section saying what is stored and how to turn it off, linked from the footer', () => {
+  const html = renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css });
+  assert.match(html, /<section class="section section--privacy" id="privacy"/);
+  for (const h of ['Reader settings, in this browser', 'Margin comments (Hypothes.is)', 'GitHub sign-in, for authors and editors']) assert.ok(html.includes(h), h);
+  assert.match(html, /<footer[\s\S]*<a href="#privacy">Privacy<\/a>/);
+});
+
+test('the request form asks what kind of text it is', () => {
+  const html = renderPage({ books: selectBooks(registry(liveBook())).listed, sha: 'a'.repeat(40), css, requestEndpoint: 'https://fn.vercel.app/api/request-book' });
+  assert.match(html, /<select id="rq-type" name="type"><option value="book">Book<\/option><option value="paper">Paper<\/option><option value="report">Report<\/option><option value="article">Article<\/option><\/select>/);
+});
