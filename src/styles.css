@@ -199,7 +199,8 @@ button { font-family: inherit; }
   letter-spacing: 0.03em;
 }
 .jump::-webkit-scrollbar { display: none; }
-.jump a { color: var(--portal-muted); }
+/* Each link a full tap target (44px tall): on a phone the row wraps under the logo. */
+.jump a { display: inline-flex; align-items: center; min-height: 44px; color: var(--portal-muted); }
 .jump a:hover { color: var(--portal-accent); text-decoration: none; }
 
 .masthead-tools { display: flex; align-items: center; gap: var(--sp-1); flex-shrink: 0; margin-left: auto; }
@@ -477,6 +478,8 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
 .recent li:last-child { border-bottom: 0; }
 .recent .cap { display: block; font-size: var(--fs-sm); color: var(--portal-muted); margin-bottom: 4px; }
 .recent .cap .sep { padding: 0 0.45em; }
+/* Links at least 24px tall, a line apart, so a thumb picks the right one (WCAG 2.2 target size). */
+.recent li a, .recent .cap a { display: inline-block; min-height: 24px; line-height: 24px; }
 .recent .recent-book { font-style: italic; }
 .recent .change--added { color: var(--portal-accent); font-weight: 600; }
 
@@ -512,13 +515,13 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
 .topics .section-lead { margin: calc(var(--sp-4) * -0.5) 0 var(--sp-4); max-width: 38em; font-size: var(--fs-base); color: var(--portal-muted); }
 .topic-letter { display: grid; grid-template-columns: 2rem 1fr; gap: 0 0.75rem; margin-bottom: 0.9rem; }
 .topic-letter[hidden] { display: none; }
-.topic-letter > h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--portal-faint); line-height: 1.6; }
+.topic-letter > h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--portal-muted); line-height: 1.6; }
 .topic-list { list-style: none; margin: 0; padding: 0; }
 .topic { margin: 0 0 0.75rem; }
 .topic[hidden] { display: none; }
 .topic:target h4 { color: var(--portal-accent); }
 .topic h4 { margin: 0; font-size: 1rem; font-weight: 600; }
-.topic-kind { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-muted); }
+.topic-kind { margin-left: 0.5rem; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-muted); }
 .topic ul { margin: 0.15rem 0 0; padding: 0; list-style: none; font-size: var(--fs-base); }
 .topic li { line-height: 1.45; }
 .topic li.topic-own a { font-weight: 600; }
@@ -596,6 +599,13 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
 .rq-done { max-width: 34em; padding: 1rem 1.25rem; border-radius: 6px; background: var(--portal-wash); }
 .rq-done p { margin: 0 0 0.4rem; }
 .rq-done-title { font-weight: 600; color: var(--portal-ok); }
+
+/* --- tables ---------------------------------------------------------------- */
+/* None on the portal today; the books' rules (batch 2b) for any to come: short
+   lines, top-aligned cells, and a table wider than the column scrolls inside its
+   own box instead of being cut off. */
+td, th { line-height: 1.45; vertical-align: top; }
+table { display: block; max-width: 100%; overflow-x: auto; }
 
 /* --- footer -------------------------------------------------------------- */
 
