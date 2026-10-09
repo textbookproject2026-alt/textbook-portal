@@ -510,7 +510,9 @@ test('privacy: its own page, linked from the footer; not a section of the landin
   assert.doesNotMatch(html, /section--privacy/);
   assert.match(html, /<footer[\s\S]*<a href="\/privacy">Privacy<\/a>/);
   const page = renderPrivacyPage({ css });
-  for (const h of ['Reader settings, in this browser', 'Margin comments (Hypothes.is)', 'GitHub sign-in, for authors and editors']) assert.ok(page.includes(h), h);
+  for (const h of ['Reader settings, in this browser', 'Margin comments (Hypothes.is)', 'The author site: your email address and your name', 'Readers who edit a page']) assert.ok(page.includes(h), h);
+  // Batch 2b: what is stored for the people on a book, why, by whom, and for how long.
+  for (const s of ['<strong>Email address</strong>', '<strong>Display name</strong>', 'resend.com', 'within 30 days', 'CC BY-SA']) assert.ok(page.includes(s), s);
   const js = readFileSync(new URL('../src/portal.js', import.meta.url), 'utf8');
   assert.match(js, /location\.hash === '#privacy'\) location\.replace\('\/privacy'\)/);
 });
