@@ -479,7 +479,7 @@ svg.is-lit .kw-edge.is-near { stroke: var(--portal-accent-soft); opacity: 1; }
 .recent .cap { display: block; font-size: var(--fs-sm); color: var(--portal-muted); margin-bottom: 4px; }
 .recent .cap .sep { padding: 0 0.45em; }
 /* Links at least 24px tall, a line apart, so a thumb picks the right one (WCAG 2.2 target size). */
-.recent li a, .recent .cap a { display: inline-block; min-height: 24px; line-height: 24px; }
+.recent li a, .recent .cap a, .taglist a, .topic a { display: inline-block; min-height: 24px; line-height: 24px; }
 .recent .recent-book { font-style: italic; }
 .recent .change--added { color: var(--portal-accent); font-weight: 600; }
 
