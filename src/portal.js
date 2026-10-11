@@ -361,7 +361,9 @@
     var MAX = 20 * 1024 * 1024;
     var MAX_TEXT = '20 MB';
     var MAX_FILES = 5;
-    var PART = 2.5 * 1024 * 1024;
+    // 1 MB per request keeps each one well inside the API's CPU limit (it takes parts
+    // of up to 2.5 MB, up to 20 per file).
+    var PART = 1024 * 1024;
     var nojs = document.querySelector('.rq-nojs');
     if (nojs) nojs.hidden = true;
     // The button opens the form; the form stays out of the way until then.
