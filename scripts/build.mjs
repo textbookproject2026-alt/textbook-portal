@@ -490,7 +490,7 @@ export function requestEndpointOf(registry) {
   return e.replace(/\/suggest-edit\/?$/, '/request-book');
 }
 
-function renderRequest(endpoint, contact) {
+function renderRequest(endpoint, contact, graph) {
   if (!endpoint) return null;
   const field = (id, label, input, hint) =>
     [
@@ -508,7 +508,7 @@ function renderRequest(endpoint, contact) {
     '    <section class="section section--request cta" id="publish">',
     '      <div class="wrap">',
     '      <h2>Publish your textbook here</h2>',
-    '      <p>Write an open textbook and we host it: its own address, margin comments, reader suggestions, an in-page editor, and a place on this page and in the key-word graph. Nothing technical is asked of you. Tell us about the book; once we have said yes, it is set up for you and you get an email with its address.</p>',
+    `      <p>Write an open textbook and we host it: its own address, margin comments, reader suggestions, an in-page editor, and a place on this page${graph ? ' and in the key-word graph' : ''}. Nothing technical is asked of you. Tell us about the book; once we have said yes, it is set up for you and you get an email with its address.</p>`,
     `      <p class="rq-guide"><a href="${GUIDE_URL}">Guide for authors</a>: everything from preparing your Word files to publishing, step by step.</p>`,
     '      <button type="button" class="btn rq-open" hidden>Start the request form</button>',
     `      <form class="request-form" data-endpoint="${escapeHtml(endpoint)}" hidden novalidate>`,
@@ -698,7 +698,7 @@ export function renderPage({ books, sha, portalSha = 'local', css, js = '', cata
   const section = {
     books: renderBooks(live, catalogs, stats),
     index: renderTopics(kw.nodes),
-    publish: renderRequest(requestEndpoint, contact),
+    publish: renderRequest(requestEndpoint, contact, Boolean(graph)),
   };
 
   // Recent changes beside the topic and author lists on a wide screen; stacked on a phone.
