@@ -16,8 +16,8 @@
  * the check passes with a warning (a red check there would block every portal
  * change until authors add tags).
  */
-import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { readFileSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 export function checkGraph(page) {
   const meta = page.match(/<meta name="portal-graph" content="keywords=(\d+) nodes=(\d+)">/);
@@ -36,7 +36,8 @@ export function checkGraph(page) {
   return { ok: true, message: `the graph draws ${drawn} of ${keywords} key words` };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run as a script (CI, registry portal.yml), not imported (the tests).
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const where = process.argv[2];
   if (!where) {
     console.error('usage: check-graph.mjs <index.html | https://…/>');
