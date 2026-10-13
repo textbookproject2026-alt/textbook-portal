@@ -610,7 +610,10 @@ test('scripts/check-graph.mjs: fails on a graph that draws nothing it should, wa
     }
   };
   const node = '<a class="kw-node kw-node--tag" href="#x">';
-  assert.equal(run(`<meta name="portal-graph" content="keywords=3 nodes=2">${node}${node}`).code, 0);
+  const box = '<div class="kw-box" id="keywords">';
+  assert.equal(run(`<meta name="portal-graph" content="keywords=3 nodes=2">${box}${node}${node}`).code, 0);
+  assert.match(run(`<meta name="portal-graph" content="keywords=3 nodes=2">${node}${node}`).out, /::error::.*no graph section/);
+  assert.match(run(`<meta name="portal-graph" content="keywords=0 nodes=0">${box}`).out, /::error::.*an empty box/);
   assert.match(run('<meta name="portal-graph" content="keywords=3 nodes=0">').out, /::error::.*drew no nodes/);
   assert.match(run(`<meta name="portal-graph" content="keywords=3 nodes=2">${node}`).out, /::error::.*says 2 graph nodes but draws 1/);
   assert.equal(run('<p>no meta</p>').code, 1);
@@ -627,4 +630,39 @@ test('the first-visit note and /privacy match the books: no Hypothes.is until co
   const page = renderPrivacyPage({ css, analytics: null, stats: null, portalSha: 'local' });
   assert.match(page, /Margin comments are switched off on the books for now, and Hypothes\.is isn&#39;t loaded at all\. Comments for classes are coming soon\./);
   assert.doesNotMatch(page, /Public annotations|Turn comments off/);
+});
+
+/* --- the graph section is there only when there is a graph (check-graph.mjs) --- */
+
+import { checkGraph } from '../scripts/check-graph.mjs';
+
+test('fewer than two key words: no graph section, filters or legend, and check-graph passes', () => {
+  const oneConcept = withCatalog({
+    pages: [{ path: '/chapters/Definitions/Emergence', source: 'chapters/Definitions/Emergence.md', title: 'Emergence', tags: [], concept: true, authors: [], links: [] }],
+  });
+  const ep = 'https://fn.example/api/request-book';
+  const none = selectBooks(registry(builderBook())).listed;
+  for (const html of [renderPage({ books: none, sha: 'a'.repeat(40), css, requestEndpoint: ep }), renderPage({ books: oneConcept.listed, sha: 'a'.repeat(40), css, catalogs: oneConcept.catalogs, requestEndpoint: ep })]) {
+    assert.match(html, /<meta name="portal-graph" content="keywords=[01] nodes=0">/);
+    assert.doesNotMatch(html, /id="keywords"|class="kw-/, 'no graph box, filters or legend');
+    assert.match(html, /class="wrap about-grid about-grid--alone"/, 'the about text takes the full width');
+    assert.match(html, /and a place on this page\. Nothing/);
+    assert.doesNotMatch(html, /in the key-word graph/, 'no copy promising a graph that is not there');
+    assert.equal(checkGraph(html).ok, true);
+  }
+  // The check itself catches an empty box left behind.
+  const leftover = render(registry(builderBook())).replace('</main>', '<div class="kw-box" id="keywords"></div></main>');
+  assert.equal(checkGraph(leftover).ok, false);
+});
+
+test('two or more key words: the graph section renders with its nodes and filters, and check-graph passes', () => {
+  const { listed, catalogs } = withCatalog();
+  const html = renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs, requestEndpoint: 'https://fn.example/api/request-book' });
+  const [, k, n] = html.match(/<meta name="portal-graph" content="keywords=(\d+) nodes=(\d+)">/).map(Number);
+  assert.ok(k >= 2 && n >= 2, `keywords=${k} nodes=${n}`);
+  assert.match(html, /<div class="kw-box" id="keywords">/);
+  assert.match(html, /<div class="kw-filters" hidden>/);
+  assert.match(html, /in the key-word graph/);
+  assert.deepEqual(checkGraph(html), { ok: true, message: `the graph draws ${n} of ${k} key words` });
+  assert.equal(checkGraph(html.replace(/<a class="kw-node[^]*?<\/a>/g, '').replace(/nodes=\d+/, 'nodes=0')).ok, false, 'key words and no nodes is a failure');
 });
