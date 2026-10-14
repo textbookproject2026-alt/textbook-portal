@@ -512,7 +512,7 @@ test('privacy: its own page, linked from the footer; not a section of the landin
   const page = renderPrivacyPage({ css });
   for (const h of ['Reader settings, in this browser', 'Margin comments (Hypothes.is)', 'The author site: your email address and your name', 'How your contributions are handled']) assert.ok(page.includes(h), h);
   // Batch 2b: what is stored for the people on a book, why, by whom, and for how long.
-  for (const s of ['<strong>Email address</strong>', '<strong>Display name</strong>', 'resend.com', 'deleted from the author site at once', 'CC BY-SA', 'id="contributions"', 'No email address is asked for or kept', 'Follow your suggestion', 'mailto:hello@confused4now.org']) assert.ok(page.includes(s), s);
+  for (const s of ['<strong>Email address</strong>', '<strong>Display name</strong>', 'resend.com', 'deleted from the author site at once', 'CC BY-SA', 'id="contributions"', 'No email address is asked for or kept', 'Follow your suggestion', 'It never stores your IP address', 'doesn&#39;t write IP addresses to its logs', 'mailto:hello@confused4now.org']) assert.ok(page.includes(s), s);
   const js = readFileSync(new URL('../src/portal.js', import.meta.url), 'utf8');
   assert.match(js, /location\.hash === '#privacy'\) location\.replace\('\/privacy'\)/);
 });
