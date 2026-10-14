@@ -103,7 +103,10 @@ export function readCatalog(raw, slug) {
       change: r.change === 'added' ? 'added' : 'updated',
     }));
 
-  return { authors: textList(raw.authors), pages, recent };
+  // The book's type as the book itself says (quartz-book bookType: index.md's
+  // resource_type, else the registry's), when the catalog has metadata.
+  const type = isText(raw.metadata?.type) ? raw.metadata.type.trim() : null;
+  return { authors: textList(raw.authors), pages, recent, type };
 }
 
 /** Every listed book's catalog, fetched in parallel. A failure is a warning. */

@@ -666,3 +666,13 @@ test('two or more key words: the graph section renders with its nodes and filter
   assert.deepEqual(checkGraph(html), { ok: true, message: `the graph draws ${n} of ${k} key words` });
   assert.equal(checkGraph(html.replace(/<a class="kw-node[^]*?<\/a>/g, '').replace(/nodes=\d+/, 'nodes=0')).ok, false, 'key words and no nodes is a failure');
 });
+
+test("the card's type is the book's own (its catalog's metadata.type, from index.md), else the registry's", () => {
+  const book = { ...liveBook(), type: 'report' };
+  const listed = selectBooks(registry(book)).listed;
+  const withType = (type) => new Map([[book.slug, readCatalog({ ...catalog(), slug: book.slug, metadata: { type } }, book.slug)]]);
+  const card = (catalogs) => renderPage({ books: listed, sha: 'a'.repeat(40), css, catalogs });
+  assert.match(card(withType('paper')), /data-type="paper">\s*<p class="badges"><span class="type-badge">Paper<\/span>/);
+  assert.match(card(withType('poem')), /data-type="report">\s*<p class="badges"><span class="type-badge">Report<\/span>/);
+  assert.match(card(new Map()), /data-type="report">/);
+});
