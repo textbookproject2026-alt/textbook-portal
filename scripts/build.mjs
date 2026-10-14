@@ -106,7 +106,7 @@ export const STATUS_LABELS = {
   preview: 'Preview — a demonstration, not for readers',
 };
 
-/** What kind of text (registry books[].type), and its badge. Absent or unknown: a book. */
+/** What kind of text (registry books[].type), and its badge. Absent or unknown: a book. The book's catalog overrides it (renderBook). */
 export const TYPE_LABELS = { book: 'Book', paper: 'Paper', report: 'Report', article: 'Article' };
 const typeOf = (book) => (Object.hasOwn(TYPE_LABELS, book?.type) ? book.type : 'book');
 
@@ -236,6 +236,9 @@ function bookAuthors(book, catalogs) {
    the authors and the address, the description, then the counts. */
 function renderBook(book, catalogs, statsBase = null) {
   const stats = bookStats(book, catalogs);
+  // The book's own catalog first (index.md's resource_type), else the registry's type.
+  const own = catalogs.get(book.slug)?.type;
+  const type = Object.hasOwn(TYPE_LABELS, own) ? own : book.type ?? 'book';
   const label = book.sandbox ? SANDBOX_LABEL : STATUS_LABELS[book.status];
   const who = bookAuthors(book, catalogs).map(escapeHtml).join(', ');
   const meta = [who || null, `<a href="${escapeHtml(book.url)}">${escapeHtml(book.domain)}</a>`].filter(Boolean).join(' — ');
@@ -249,8 +252,8 @@ function renderBook(book, catalogs, statsBase = null) {
   ].filter(Boolean);
 
   return [
-    `        <li class="result" data-type="${escapeHtml(book.type ?? 'book')}">`,
-    `          <p class="badges"><span class="type-badge">${escapeHtml(TYPE_LABELS[book.type] ?? 'Book')}</span>${label ? `<span class="badge">${escapeHtml(label)}</span>` : ''}</p>`,
+    `        <li class="result" data-type="${escapeHtml(type)}">`,
+    `          <p class="badges"><span class="type-badge">${escapeHtml(TYPE_LABELS[type] ?? 'Book')}</span>${label ? `<span class="badge">${escapeHtml(label)}</span>` : ''}</p>`,
     `          <h3><a href="${escapeHtml(book.url)}">${escapeHtml(book.title)}</a></h3>`,
     `          <div class="result-meta">${meta}</div>`,
     `          <p>${escapeHtml(book.summary)}</p>`,
