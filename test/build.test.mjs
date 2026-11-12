@@ -352,7 +352,7 @@ test('the graph layout is deterministic and inside the view', () => {
 
 /* --- publish your textbook here ----------------------------------------- */
 
-import { requestEndpointOf, SANDBOX_LABEL } from '../scripts/build.mjs';
+import { requestEndpointOf } from '../scripts/build.mjs';
 
 test('the request endpoint is the suggest-edit endpoint\'s sibling, or nothing', () => {
   const reg = (e) => ({ platform: { suggest_edit_endpoint: e } });
@@ -374,12 +374,13 @@ test('the request form is rendered with its endpoint, and left out without one',
   assert.doesNotMatch(without, /id="publish"/);
 });
 
-test('a sandbox book is listed, badged as a test', () => {
-  const b = liveBook();
-  b.sandbox = true;
-  const html = render(registry(b));
-  assert.match(html, new RegExp(SANDBOX_LABEL));
-  assert.doesNotMatch(render(registry(liveBook())), new RegExp(SANDBOX_LABEL));
+test('a test book (sandbox: true) appears nowhere: not in the list, the graph, topics, authors or recent changes', () => {
+  const t = { ...liveBook(), slug: 'test-smoke', title: 'Smoke', site: { domain: 'test-smoke.confused4now.org' }, sandbox: true };
+  const { listed, skipped } = selectBooks(registry(liveBook(), t));
+  assert.deepEqual(listed.map((b) => b.slug), ['social-research-methods']);
+  assert.deepEqual(skipped, []);
+  const html = renderPage({ books: listed, sha: 'a'.repeat(40), css });
+  assert.doesNotMatch(html, /test-smoke|Smoke/);
 });
 
 /* --- analytics ----------------------------------------------------------- */

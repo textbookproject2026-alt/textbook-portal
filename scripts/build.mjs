@@ -152,6 +152,9 @@ export function selectBooks(registry) {
     // off this page, so out of the catalogue, graph, topics, authors and recent
     // changes too, which are all drawn from what is listed here.
     if (book.listed === false) return;
+    // A test book (registry `sandbox: true`, the platform maintainer's, from the author
+    // site): the same. It stays reachable at its own address, unlisted and noindex.
+    if (book.sandbox === true) return;
 
     if (!Object.hasOwn(STATUS_LABELS, book.status)) {
       return skipped.push({ where, reason: `status ${JSON.stringify(book.status)} is not one this build knows` });
@@ -173,9 +176,6 @@ export function selectBooks(registry) {
       // Optional extras: present when sound, silently absent when not. A bad
       // one must not cost the book its place in the list.
       maintainer: isText(book?.maintainer?.name) ? book.maintainer.name.trim() : null,
-      // A throwaway test book (registry `sandbox: true`): listed like any other,
-      // so a test proves the real path, but badged so no reader mistakes it.
-      sandbox: book.sandbox === true,
       templatePreview: isHttpsUrl(book?.editions?.template_preview) ? book.editions.template_preview : null,
       // Where the book's catalog is (scripts/catalog.mjs), and how its pages
       // are addressed. Neither can cost the book its place in the list.
@@ -221,8 +221,6 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** An id for a keyword's entry in the topic index, safe in HTML and CSS. */
 export const topicId = (key) => `topic-${key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x'}`;
 
-export const SANDBOX_LABEL = 'Test book — will be removed';
-
 /** A book's title up to its subtitle, for lists where the full title would run long. */
 const shortTitle = (title) => title.split(/:\s/)[0];
 
@@ -239,7 +237,7 @@ function renderBook(book, catalogs, statsBase = null) {
   // The book's own catalog first (index.md's resource_type), else the registry's type.
   const own = catalogs.get(book.slug)?.type;
   const type = Object.hasOwn(TYPE_LABELS, own) ? own : book.type ?? 'book';
-  const label = book.sandbox ? SANDBOX_LABEL : STATUS_LABELS[book.status];
+  const label = STATUS_LABELS[book.status];
   const who = bookAuthors(book, catalogs).map(escapeHtml).join(', ');
   const meta = [who || null, `<a href="${escapeHtml(book.url)}">${escapeHtml(book.domain)}</a>`].filter(Boolean).join(' — ');
   const sub = [

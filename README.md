@@ -107,8 +107,10 @@ In page order, each left out when it has nothing to show:
   send; without it the section shows `PORTAL_CONTACT` (a Pages environment variable), if set.
   Left out if the endpoint can't be derived.
 
-A book with registry `sandbox: true` (a throwaway test) is listed like any other, so a test goes
-through the real path, but carries the badge *Test book — will be removed*.
+A book with registry `sandbox: true` (a test book the platform maintainer made on the author site)
+is left out like a `listed: false` one: not in the list, the graph, topics, authors or recent
+changes. It is still built and served at its own address (unlisted, noindex, with a "Test book"
+strip on every page).
 
 ### Where the catalogs come from
 
