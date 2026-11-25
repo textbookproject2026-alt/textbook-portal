@@ -121,6 +121,29 @@ export function statsOf(registry) {
   return p.dashboard_public === true && isHostname(p.site) ? `https://plausible.io/${p.site}` : null;
 }
 
+/**
+ * The platform's donation link (registry platform.donate_url), or '' for none: then
+ * no Donate anywhere. PayPal only; anything else fails the build, as it does a
+ * book's (quartz-book builder/lib.mjs donateUrl, the same rule).
+ */
+export const DONATE_URL = /^https:\/\/(www\.paypal\.com|paypal\.me)\/[^\s"'<>\\]+$/;
+export function donateOf(registry) {
+  const url = registry?.platform?.donate_url ?? '';
+  if (url !== '' && (typeof url !== 'string' || !DONATE_URL.test(url))) {
+    throw new BuildError(
+      `the registry's platform.donate_url is ${JSON.stringify(url)}. It must be a PayPal link starting with https://www.paypal.com/ or https://paypal.me/, or "" for no Donate button.`,
+    );
+  }
+  return url;
+}
+const DONATE_LABEL = 'Donate via PayPal (opens in a new tab)';
+/** The footer's donation line and button: a plain link, no PayPal script, so no cookies. */
+export const renderDonate = (url) =>
+  url
+    ? `      <div class="donate"><p>Confused for Now is free to read and free to use. Donations help pay for hosting, domains and the upkeep of the site.</p><a class="donate-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${DONATE_LABEL}">Donate</a></div>\n`
+    : '';
+const donateLink = (url) => `<a class="donate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${DONATE_LABEL}">Donate</a>`;
+
 /** The dashboard filtered to one hostname (a book's), as its Book statistics. */
 export const statsFor = (base, host) => `${base}${base.includes('?') ? '&' : '?'}f=is,hostname,${encodeURIComponent(host)}`;
 
@@ -654,7 +677,7 @@ function renderPrivacy(analytics) {
  * Served once the apex redirect rule no longer catches every path (README, "The apex
  * redirect"); Cloudflare Pages serves privacy.html at /privacy.
  */
-export function renderPrivacyPage({ css, analytics = null, stats = null, portalSha = 'local' }) {
+export function renderPrivacyPage({ css, analytics = null, stats = null, portalSha = 'local', donate = '' }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -684,7 +707,7 @@ ${renderPrivacy(analytics)}
 
     <footer class="colophon">
       <div class="wrap">
-      <p><a href="/">Confused for Now</a> · <a href="${GUIDE_URL}">Guide for authors</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''}</p>
+${renderDonate(donate)}      <p><a href="/">Confused for Now</a> · <a href="${GUIDE_URL}">Guide for authors</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''}</p>
       </div>
     </footer>
   </main>
@@ -693,7 +716,7 @@ ${renderPrivacy(analytics)}
 `;
 }
 
-export function renderPage({ books, sha, portalSha = 'local', css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null, stats = null }) {
+export function renderPage({ books, sha, portalSha = 'local', css, js = '', catalogs = new Map(), requestEndpoint = null, contact = null, analytics = null, stats = null, donate = '' }) {
   const live = books.filter((b) => b.status === 'live');
   const kw = keywords(books, catalogs);
 
@@ -729,6 +752,7 @@ export function renderPage({ books, sha, portalSha = 'local', css, js = '', cata
     ['publish', 'Publish a book', section.publish],
   ].filter(([, , html]) => html);
   const navItems = NAV.map(([id, text]) => `<a href="#${id}">${text}</a>`);
+  if (donate) navItems.push(donateLink(donate));
   const nav = navItems.length > 1 ? `      <nav class="jump" aria-label="On this page">${navItems.join('')}</nav>\n` : '';
   const search = kw.nodes.length
     ? `<button type="button" class="icon-btn search-btn" aria-label="Search topics" title="Search topics" hidden>${ICON_SEARCH}</button>`
@@ -797,7 +821,7 @@ ${[section.books, pair, section.index, section.publish].filter(Boolean).join('\n
 
     <footer class="colophon">
       <div class="wrap">
-      <p>© ${new Date().getUTCFullYear()} Confused for Now — every book&#39;s licence is stated on the book itself, and its source text is in a public repository.</p>
+${renderDonate(donate)}      <p>© ${new Date().getUTCFullYear()} Confused for Now — every book&#39;s licence is stated on the book itself, and its source text is in a public repository.</p>
       <p><a href="${GUIDE_URL}">Guide for authors</a> · <a href="/privacy">Privacy</a>${stats ? ` · <a href="${escapeHtml(stats)}">Platform statistics</a>` : ''} · ${contact ? `<a href="mailto:${escapeHtml(contact)}">${escapeHtml(contact)}</a>` : 'Generated from the platform registry.'}</p>
       </div>
     </footer>
@@ -874,7 +898,7 @@ async function main() {
   // deploy hook). version.txt is the REGISTRY's commit, so it can't tell a stale
   // portal from a current one; .github/workflows/deployed.yml polls this instead.
   const portalSha = /^[0-9a-f]{40}$/.test(process.env.CF_PAGES_COMMIT_SHA ?? '') ? process.env.CF_PAGES_COMMIT_SHA : 'local';
-  const html = renderPage({ books: listed, sha, portalSha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact, analytics: analyticsOf(registry), stats: statsOf(registry) });
+  const html = renderPage({ books: listed, sha, portalSha, css, js, catalogs, requestEndpoint: requestEndpointOf(registry), contact, analytics: analyticsOf(registry), stats: statsOf(registry), donate: donateOf(registry) });
   console.log(`build: ${graphSummary(listed, catalogs)}`);
 
   rmSync(OUT_DIR, { recursive: true, force: true });
@@ -884,7 +908,7 @@ async function main() {
   // polls this until it matches the merge SHA, exactly as deploy.yml polls the
   // function's header. No trailing newline: the poller compares the whole body.
   writeFileSync(`${OUT_DIR}version.txt`, sha);
-  writeFileSync(`${OUT_DIR}privacy.html`, renderPrivacyPage({ css, analytics: analyticsOf(registry), stats: statsOf(registry), portalSha }));
+  writeFileSync(`${OUT_DIR}privacy.html`, renderPrivacyPage({ css, analytics: analyticsOf(registry), stats: statsOf(registry), portalSha, donate: donateOf(registry) }));
   const copied = copyStatic();
 
   console.log(

@@ -613,6 +613,14 @@ table { display: block; max-width: 100%; overflow-x: auto; }
 .colophon .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); border-top: 1px solid var(--portal-border); padding-top: var(--sp-4); }
 .colophon p { margin: 0; }
 .colophon a { color: var(--portal-muted); }
+/* The donation line (registry platform.donate_url): quiet, above the colophon's own lines. */
+.donate { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); padding-bottom: var(--sp-2); }
+.donate p { flex: 1 1 18rem; max-width: 40rem; font-size: var(--fs-ui); line-height: 1.45; }
+.colophon a.donate-btn {
+  flex: none; padding: 0.3rem 0.95rem; border: 1px solid var(--portal-border); border-radius: 6px;
+  color: var(--portal-accent); font-family: var(--portal-font-ui); font-size: var(--fs-ui); font-weight: 600; text-decoration: none;
+}
+.colophon a.donate-btn:hover { background: var(--portal-wash); border-color: var(--portal-accent-soft); }
 
 /* --- small screens --------------------------------------------------------- */
 
@@ -621,7 +629,9 @@ table { display: block; max-width: 100%; overflow-x: auto; }
   .masthead { padding: var(--sp-3) 0; }
   .masthead .wrap { padding-bottom: var(--sp-3); gap: var(--sp-2) var(--sp-3); }
   .masthead .home svg { height: 24px; }
-  .jump { order: 3; flex-basis: 100%; font-size: var(--fs-ui); }
+  /* Wraps rather than scrolls, so no item (Donate, last) is hidden past the edge. */
+  .jump { order: 3; flex-basis: 100%; font-size: var(--fs-ui); flex-wrap: wrap; column-gap: var(--sp-3); row-gap: 0; overflow-x: visible; white-space: normal; }
+  .jump a { white-space: nowrap; }
   .section, .pair { padding: var(--sp-5) 0; }
   .section + .section > .wrap, .pair + .section > .wrap, .section + .pair > .wrap { padding-top: var(--sp-5); }
   .kw-panel { position: static; width: auto; max-height: none; margin: var(--sp-2) 0 0; }
@@ -653,3 +663,4 @@ table { display: block; max-width: 100%; overflow-x: auto; }
 .privacy-note p { margin: 0 0 0.6rem; }
 .privacy-note .privacy-actions { display: flex; justify-content: flex-end; }
 @media print { .privacy-note { display: none; } }
+@media print { .donate, .donate-link { display: none; } }
