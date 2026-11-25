@@ -677,3 +677,26 @@ test("the card's type is the book's own (its catalog's metadata.type, from index
   assert.match(card(withType('poem')), /data-type="report">\s*<p class="badges"><span class="type-badge">Report<\/span>/);
   assert.match(card(new Map()), /data-type="report">/);
 });
+
+test('donate_url: a PayPal link shows Donate in the footer and the top navigation; empty shows nothing; anything else fails the build', async () => {
+  const { donateOf, renderPrivacyPage } = await import('../scripts/build.mjs');
+  const reg = (donate_url) => ({ platform: { donate_url } });
+  assert.equal(donateOf({ platform: {} }), '');
+  assert.equal(donateOf(reg('')), '');
+  assert.equal(donateOf(reg('https://paypal.me/confused4now')), 'https://paypal.me/confused4now');
+  for (const bad of ['http://www.paypal.com/donate', 'https://paypal.com/x', 'https://www.paypal.com.evil.example/x', 'https://paypal.me/', 'https://example.org/', 'https://paypal.me/x"y', 7]) {
+    assert.throws(() => donateOf(reg(bad)), (e) => e instanceof BuildError && /platform\.donate_url .*https:\/\/www\.paypal\.com\//.test(e.message));
+  }
+  const books = selectBooks(registry(liveBook(), previewBook())).listed;
+  const url = 'https://www.paypal.com/donate/?hosted_button_id=X&amp=1';
+  const html = renderPage({ books, sha: 'a'.repeat(40), css, donate: url });
+  const link = `href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Donate via PayPal (opens in a new tab)">Donate</a>`;
+  assert.match(html, /<nav class="jump"[^]*?class="donate-link"[^]*?<\/nav>/);
+  assert.ok(html.includes(`<a class="donate-link" ${link}`));
+  assert.ok(html.includes(`<a class="donate-btn" ${link}`));
+  assert.match(html, /free to read and free to use\. Donations help pay for hosting, domains and the upkeep of the site\./);
+  assert.ok(renderPrivacyPage({ css, donate: url }).includes(`<a class="donate-btn" ${link}`));
+  for (const page of [renderPage({ books, sha: 'a'.repeat(40), css }), renderPrivacyPage({ css })]) {
+    assert.doesNotMatch(page, /class="donate|>Donate<|free to read/);
+  }
+});
